@@ -1,0 +1,12 @@
+.env
+.env.*
+*.pem
+credentials
+.aws/
+node_modules/
+**/__pycache__/
+*.pyc
+.build/
+.venv/
+outputs/
+output/

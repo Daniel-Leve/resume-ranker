@@ -1,0 +1,44 @@
+Python Data Engineer
+
+We are hiring a Python Data Engineer to build and maintain our analytics data platform.
+
+About the role
+--------------
+Our data platform processes billions of events per month to power business intelligence
+dashboards, ML feature stores, and customer-facing analytics products.
+You will own end-to-end data pipelines — from ingestion through transformation to serving.
+
+Required skills and experience
+-------------------------------
+- 3+ years of professional Python development experience
+- Strong experience building large-scale data pipelines with Apache Spark or PySpark
+- Experience orchestrating workflows with Apache Airflow
+  (DAG authoring, scheduling, dependency management, monitoring)
+- Proficiency with SQL and data warehouse design patterns
+  (star schemas, slowly-changing dimensions, partitioning strategies)
+- Hands-on experience with at least one cloud data warehouse:
+  AWS Redshift, Google BigQuery, or Snowflake
+- Understanding of ETL / ELT pipeline design patterns
+- Experience with data modelling for analytics use cases
+
+Nice to have
+------------
+- Experience with dbt (data build tool) for SQL transformation layers
+- Streaming data processing: Apache Kafka, AWS Kinesis, or Flink
+- Modern table formats: Delta Lake, Apache Iceberg, or Apache Hudi
+- Python data libraries: Pandas, NumPy, PyArrow
+- Infrastructure as code: Terraform or CloudFormation
+- Containerisation: Docker, Kubernetes
+
+Responsibilities
+----------------
+- Design and implement scalable, maintainable data pipelines
+- Build and enforce data quality checks throughout the pipeline
+- Model data for analytics use cases in close collaboration with data analysts
+  and data scientists
+- Optimise pipeline performance and cloud storage costs
+- Document data lineage and maintain data dictionaries
+- On-call rotation for pipeline incidents
+
+Location: Hyderabad, India (Remote-friendly — up to 2 days on-site per month)
+Experience: 3–5 years

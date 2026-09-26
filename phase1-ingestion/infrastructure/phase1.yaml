@@ -1,0 +1,164 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Low-cost Phase 1 PDF resume ingestion with asynchronous Textract
+Parameters:
+  BucketName:
+    Type: String
+    AllowedPattern: '^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$'
+  ProjectTag:
+    Type: String
+    Default: ai-resume-screening-phase1
+Resources:
+  ResumeBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: AllowS3InvokeStart
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - {Name: prefix, Value: incoming/}
+                  - {Name: suffix, Value: .pdf}
+            Function: !GetAtt StartFunction.Arn
+      Tags: [{Key: Project, Value: !Ref ProjectTag}]
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+  CompletionTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: resume-textract-completed
+      Tags: [{Key: Project, Value: !Ref ProjectTag}]
+  TextractSnsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: resume-textract-sns-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: textract.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: PublishOnlyToCompletionTopic
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement: [{Effect: Allow, Action: 'sns:Publish', Resource: !Ref CompletionTopic}]
+  StartRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: resume-start-textract-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: StartTextractAndLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - {Effect: Allow, Action: 'textract:StartDocumentTextDetection', Resource: '*'}
+              - {Effect: Allow, Action: 's3:GetObject', Resource: !Sub 'arn:${AWS::Partition}:s3:::${BucketName}/incoming/*'}
+              - {Effect: Allow, Action: 'iam:PassRole', Resource: !GetAtt TextractSnsRole.Arn, Condition: {StringEquals: {'iam:PassedToService': textract.amazonaws.com}}}
+              - {Effect: Allow, Action: ['logs:CreateLogGroup','logs:CreateLogStream','logs:PutLogEvents'], Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/resume-start-textract:*'}
+  CollectRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: resume-collect-textract-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: CollectTextractAndWriteResults
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - {Effect: Allow, Action: 'textract:GetDocumentTextDetection', Resource: '*'}
+              - {Effect: Allow, Action: 's3:PutObject', Resource: [!Sub '${ResumeBucket.Arn}/extracted/*', !Sub '${ResumeBucket.Arn}/failed/*']}
+              - {Effect: Allow, Action: ['logs:CreateLogGroup','logs:CreateLogStream','logs:PutLogEvents'], Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/resume-collect-textract:*'}
+  StartFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: resume-start-textract
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt StartRole.Arn
+      Timeout: 30
+      MemorySize: 128
+      Environment: {Variables: {SNS_TOPIC_ARN: !Ref CompletionTopic, TEXTRACT_SNS_ROLE_ARN: !GetAtt TextractSnsRole.Arn}}
+      Code:
+        ZipFile: |
+          import os, urllib.parse
+          from datetime import datetime, timezone
+          import boto3
+          from botocore.exceptions import ClientError
+          textract=boto3.client('textract')
+          def lambda_handler(event, context):
+            for record in event.get('Records',[]):
+              s3=record.get('s3',{}); bucket=s3.get('bucket',{}).get('name'); key=urllib.parse.unquote_plus(s3.get('object',{}).get('key',''))
+              if not bucket or not key or not key.startswith('incoming/') or not key.lower().endswith('.pdf'):
+                print('Rejected non-Phase-1 S3 event'); continue
+              try:
+                r=textract.start_document_text_detection(DocumentLocation={'S3Object':{'Bucket':bucket,'Name':key}},NotificationChannel={'SNSTopicArn':os.environ['SNS_TOPIC_ARN'],'RoleArn':os.environ['TEXTRACT_SNS_ROLE_ARN']})
+                print({'event':'textract_started','bucket':bucket,'key':key,'job_id':r['JobId'],'at':datetime.now(timezone.utc).isoformat()})
+              except ClientError as e:
+                print({'event':'textract_start_failed','bucket':bucket,'key':key,'error_code':e.response.get('Error',{}).get('Code','Unknown')}); raise
+  CollectFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: resume-collect-textract
+      Runtime: python3.13
+      Handler: index.lambda_handler
+      Role: !GetAtt CollectRole.Arn
+      Timeout: 120
+      MemorySize: 256
+      Environment: {Variables: {RESULT_BUCKET: !Ref ResumeBucket}}
+      Code:
+        ZipFile: |
+          import json, os
+          from datetime import datetime, timezone
+          import boto3
+          from botocore.exceptions import ClientError
+          textract=boto3.client('textract'); s3=boto3.client('s3')
+          def put(prefix, job, data):
+            s3.put_object(Bucket=os.environ['RESULT_BUCKET'],Key=f'{prefix}/{job}.json',Body=json.dumps(data,ensure_ascii=False).encode('utf-8'),ContentType='application/json',ServerSideEncryption='AES256')
+          def lambda_handler(event, context):
+            for record in event.get('Records',[]):
+              try: msg=json.loads(record['Sns']['Message']); job=msg['JobId']; status=msg.get('Status')
+              except (KeyError,TypeError,json.JSONDecodeError) as e: print({'event':'sns_parse_failed','error':type(e).__name__}); raise
+              location=msg.get('DocumentLocation',{}); source={'bucket':location.get('S3Bucket',''),'key':location.get('S3ObjectName','')}
+              if status=='FAILED':
+                put('failed',job,{'job_id':job,'status':'FAILED','source':source,'metadata':{'processed_at':datetime.now(timezone.utc).isoformat(),'pipeline_version':'phase1-v1'}}); print({'event':'textract_failed','job_id':job}); continue
+              if status!='SUCCEEDED': print({'event':'unexpected_textract_status','job_id':job,'status':status}); continue
+              try:
+                blocks=[]; token=None; pages=0
+                while True:
+                  args={'JobId':job};
+                  if token: args['NextToken']=token
+                  result=textract.get_document_text_detection(**args); blocks.extend(result.get('Blocks',[])); pages=max(pages,result.get('DocumentMetadata',{}).get('Pages',0)); token=result.get('NextToken')
+                  if not token: break
+                text='\n'.join(b['Text'] for b in blocks if b.get('BlockType')=='LINE' and 'Text' in b)
+                put('extracted',job,{'job_id':job,'status':'SUCCEEDED','source':source,'page_count':pages,'text':text,'blocks':blocks,'metadata':{'processed_at':datetime.now(timezone.utc).isoformat(),'pipeline_version':'phase1-v1'}}); print({'event':'textract_collected','job_id':job,'block_count':len(blocks)})
+              except ClientError as e: print({'event':'textract_collect_failed','job_id':job,'error_code':e.response.get('Error',{}).get('Code','Unknown')}); raise
+  AllowS3InvokeStart:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref StartFunction
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub 'arn:${AWS::Partition}:s3:::${BucketName}'
+  SnsSubscription:
+    Type: AWS::SNS::Subscription
+    Properties: {TopicArn: !Ref CompletionTopic, Protocol: lambda, Endpoint: !GetAtt CollectFunction.Arn}
+  AllowSnsInvokeCollect:
+    Type: AWS::Lambda::Permission
+    Properties: {Action: lambda:InvokeFunction, FunctionName: !Ref CollectFunction, Principal: sns.amazonaws.com, SourceArn: !Ref CompletionTopic}
+Outputs:
+  Bucket: {Value: !Ref ResumeBucket}
+  CompletionTopicArn: {Value: !Ref CompletionTopic}

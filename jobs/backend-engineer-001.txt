@@ -1,0 +1,43 @@
+Backend Engineer — Java / Spring Boot
+
+We are looking for an experienced Backend Engineer to join our platform engineering team.
+
+About the role
+--------------
+You will design, build, and own backend services that form the core of our
+transaction-processing platform. The stack is primarily Java with Spring Boot,
+deployed on Kubernetes on AWS.
+
+Required skills and experience
+-------------------------------
+- 3+ years of professional Java development experience
+- Strong knowledge of Spring Boot and the Spring Framework ecosystem
+  (Spring MVC, Spring Data JPA, Spring Security)
+- Experience designing and building RESTful APIs consumed by web and mobile clients
+- Solid understanding of microservices architecture and distributed systems
+- Proficiency with relational databases: PostgreSQL or MySQL
+  (schema design, query optimisation, indexing strategies)
+- Experience containerising services with Docker
+- Familiarity with Kubernetes for deployment and scaling
+- Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)
+- Strong grasp of object-oriented design principles and clean code practices
+
+Nice to have
+------------
+- Experience with event-driven architectures: Apache Kafka or RabbitMQ
+- Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)
+- Caching: Redis or Memcached
+- API protocols beyond REST: gRPC or GraphQL
+- Test-driven development: JUnit 5, Mockito, integration testing
+- Monitoring and observability: Prometheus, Grafana, ELK stack
+
+Responsibilities
+----------------
+- Design, implement, and maintain scalable backend services
+- Define and document API contracts in collaboration with frontend and mobile teams
+- Participate actively in technical design reviews and code reviews
+- Write comprehensive unit and integration tests
+- Monitor production service health and respond to incidents
+
+Location: Bangalore, India (Hybrid — 3 days on-site)
+Experience: 3–6 years

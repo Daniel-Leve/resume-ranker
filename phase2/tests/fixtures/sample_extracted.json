@@ -1,0 +1,38 @@
+{
+    "job_id": "abc123textractjobid456",
+    "status": "SUCCEEDED",
+    "source": {
+        "bucket": "ai-resume-screening-dev-test",
+        "key": "incoming/john-doe.pdf"
+    },
+    "page_count": 2,
+    "text": "John Doe\njohn.doe@example.test | +91 98765 43210 | Mumbai, India\nSUMMARY\nExperienced backend engineer with 4 years building scalable REST APIs in Java and Spring Boot. Passionate about distributed systems and cloud-native architecture.\nSKILLS\nJava, Spring Boot, Spring Framework, REST APIs, Microservices, PostgreSQL, MySQL, Redis, Docker, Kubernetes, AWS, Maven, Git, JUnit\nEXPERIENCE\nSenior Software Engineer - Acme Technologies\n2023 - Present\nDesigned and built microservices handling 50K requests/second using Java 17 and Spring Boot.\nImplemented distributed caching with Redis, reducing database load by 40%.\nLed migration of monolithic payment service to event-driven architecture with Kafka.\nSoftware Engineer - Beta Systems\n2021 - 2023\nDeveloped internal REST APIs consumed by 3 frontend teams.\nWrote unit and integration tests achieving 90% code coverage with JUnit and Mockito.\nEDUCATION\nB.Tech, Computer Science and Engineering\nIIT Bombay, 2021\nCERTIFICATIONS\nAWS Certified Developer - Associate (2023)",
+    "blocks": [
+        {"BlockType": "PAGE", "Page": 1, "Id": "page1"},
+        {"BlockType": "LINE", "Text": "John Doe", "Page": 1, "Id": "l1"},
+        {"BlockType": "LINE", "Text": "john.doe@example.test | +91 98765 43210 | Mumbai, India", "Page": 1, "Id": "l2"},
+        {"BlockType": "LINE", "Text": "SUMMARY", "Page": 1, "Id": "l3"},
+        {"BlockType": "LINE", "Text": "Experienced backend engineer with 4 years building scalable REST APIs in Java and Spring Boot. Passionate about distributed systems and cloud-native architecture.", "Page": 1, "Id": "l4"},
+        {"BlockType": "LINE", "Text": "SKILLS", "Page": 1, "Id": "l5"},
+        {"BlockType": "LINE", "Text": "Java, Spring Boot, Spring Framework, REST APIs, Microservices, PostgreSQL, MySQL, Redis, Docker, Kubernetes, AWS, Maven, Git, JUnit", "Page": 1, "Id": "l6"},
+        {"BlockType": "LINE", "Text": "EXPERIENCE", "Page": 1, "Id": "l7"},
+        {"BlockType": "LINE", "Text": "Senior Software Engineer - Acme Technologies", "Page": 1, "Id": "l8"},
+        {"BlockType": "LINE", "Text": "2023 - Present", "Page": 1, "Id": "l9"},
+        {"BlockType": "LINE", "Text": "Designed and built microservices handling 50K requests/second using Java 17 and Spring Boot.", "Page": 1, "Id": "l10"},
+        {"BlockType": "LINE", "Text": "Implemented distributed caching with Redis, reducing database load by 40%.", "Page": 1, "Id": "l11"},
+        {"BlockType": "LINE", "Text": "Led migration of monolithic payment service to event-driven architecture with Kafka.", "Page": 1, "Id": "l12"},
+        {"BlockType": "LINE", "Text": "Software Engineer - Beta Systems", "Page": 2, "Id": "l13"},
+        {"BlockType": "LINE", "Text": "2021 - 2023", "Page": 2, "Id": "l14"},
+        {"BlockType": "LINE", "Text": "Developed internal REST APIs consumed by 3 frontend teams.", "Page": 2, "Id": "l15"},
+        {"BlockType": "LINE", "Text": "Wrote unit and integration tests achieving 90% code coverage with JUnit and Mockito.", "Page": 2, "Id": "l16"},
+        {"BlockType": "LINE", "Text": "EDUCATION", "Page": 2, "Id": "l17"},
+        {"BlockType": "LINE", "Text": "B.Tech, Computer Science and Engineering", "Page": 2, "Id": "l18"},
+        {"BlockType": "LINE", "Text": "IIT Bombay, 2021", "Page": 2, "Id": "l19"},
+        {"BlockType": "LINE", "Text": "CERTIFICATIONS", "Page": 2, "Id": "l20"},
+        {"BlockType": "LINE", "Text": "AWS Certified Developer - Associate (2023)", "Page": 2, "Id": "l21"}
+    ],
+    "metadata": {
+        "processed_at": "2026-09-21T00:00:00+00:00",
+        "pipeline_version": "phase1-v1"
+    }
+}

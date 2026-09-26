@@ -1,0 +1,14 @@
+# Phase 2 — Python dependencies
+# Install from the project root: pip install -r phase2/requirements.txt
+
+# AWS SDK (Phase 2 reads from Phase 1 S3 bucket — no new AWS resources created)
+boto3>=1.34.0
+
+# MongoDB Atlas driver with SRV URI support
+pymongo[srv]>=4.7.0
+
+# Voyage AI embedding SDK
+voyageai>=0.3.2
+
+# Environment variable loading from .env file
+python-dotenv>=1.0.0
