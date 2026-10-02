@@ -8,5 +8,4 @@ node_modules/
 *.pyc
 .build/
 .venv/
-outputs/
 output/

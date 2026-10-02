@@ -1,0 +1,172 @@
+{
+  "job_id": "backend-engineer-001",
+  "phase": "phase3",
+  "retrieval_method": "hybrid",
+  "rerank_model": "rerank-2.5",
+  "candidate_count_input": 11,
+  "candidate_count_output": 5,
+  "candidates": [
+    {
+      "candidate_id": "qwodhqehd",
+      "rerank_rank": 1,
+      "rerank_score": 0.789062,
+      "rank_change": 0,
+      "phase2": {
+        "hybrid_score": 0.142952,
+        "lexical_rank": 1,
+        "vector_rank": 1,
+        "matched_chunks": [
+          {
+            "chunk_id": "qwodhqehd_summary_00",
+            "section": "summary"
+          },
+          {
+            "chunk_id": "qwodhqehd_projects_00",
+            "section": "projects"
+          },
+          {
+            "chunk_id": "qwodhqehd_skills_00",
+            "section": "skills"
+          },
+          {
+            "chunk_id": "qwodhqehd_experience_00",
+            "section": "experience"
+          },
+          {
+            "chunk_id": "qwodhqehd_header_00",
+            "section": "header"
+          }
+        ]
+      },
+      "source_key": "extracted/18e12c6530ee3a69b386ecbaa37b8b4ebbe51780c1564887b73544a4a40b64b2.json",
+      "document_chunks": [
+        "qwodhqehd_header_00",
+        "qwodhqehd_summary_00",
+        "qwodhqehd_education_00",
+        "qwodhqehd_skills_00",
+        "qwodhqehd_experience_00",
+        "qwodhqehd_projects_00",
+        "qwodhqehd_projects_01"
+      ]
+    },
+    {
+      "candidate_id": "yokeshwaran_k_resume-yokeshwaran-k",
+      "rerank_rank": 2,
+      "rerank_score": 0.519531,
+      "rank_change": 2,
+      "phase2": {
+        "hybrid_score": 0.042925,
+        "lexical_rank": 8,
+        "vector_rank": 8,
+        "matched_chunks": [
+          {
+            "chunk_id": "yokeshwaran_k_resume-yokeshwaran-k_summary_00",
+            "section": "summary"
+          },
+          {
+            "chunk_id": "yokeshwaran_k_resume-yokeshwaran-k_projects_00",
+            "section": "projects"
+          }
+        ]
+      },
+      "source_key": "extracted/0b43027e449226c14150dc2856c2ca5345c33aefc74c3aeea4337497d4e82dd5.json",
+      "document_chunks": [
+        "yokeshwaran_k_resume-yokeshwaran-k_header_00",
+        "yokeshwaran_k_resume-yokeshwaran-k_summary_00",
+        "yokeshwaran_k_resume-yokeshwaran-k_skills_00",
+        "yokeshwaran_k_resume-yokeshwaran-k_projects_00",
+        "yokeshwaran_k_resume-yokeshwaran-k_projects_01",
+        "yokeshwaran_k_resume-yokeshwaran-k_education_00",
+        "yokeshwaran_k_resume-yokeshwaran-k_languages_00"
+      ]
+    },
+    {
+      "candidate_id": "ganeshs",
+      "rerank_rank": 3,
+      "rerank_score": 0.507812,
+      "rank_change": 7,
+      "phase2": {
+        "hybrid_score": 0.013889,
+        "lexical_rank": null,
+        "vector_rank": 12,
+        "matched_chunks": [
+          {
+            "chunk_id": "ganeshs_projects_01",
+            "section": "projects"
+          }
+        ]
+      },
+      "source_key": "extracted/6386a007f486d4b692d7bf465e23602039047306a1c35052aff820853f0f3b0d.json",
+      "document_chunks": [
+        "ganeshs_header_00",
+        "ganeshs_summary_00",
+        "ganeshs_education_00",
+        "ganeshs_projects_00",
+        "ganeshs_projects_01",
+        "ganeshs_experience_00",
+        "ganeshs_skills_00",
+        "ganeshs_certifications_00"
+      ]
+    },
+    {
+      "candidate_id": "resume-sns",
+      "rerank_rank": 4,
+      "rerank_score": 0.5,
+      "rank_change": -2,
+      "phase2": {
+        "hybrid_score": 0.058102,
+        "lexical_rank": 4,
+        "vector_rank": 9,
+        "matched_chunks": [
+          {
+            "chunk_id": "resume-sns_projects_01",
+            "section": "projects"
+          },
+          {
+            "chunk_id": "resume-sns_header_00",
+            "section": "header"
+          },
+          {
+            "chunk_id": "resume-sns_skills_00",
+            "section": "skills"
+          }
+        ]
+      },
+      "source_key": "extracted/6d29b3a477bc52094b982fc989a509689d73906f41abd1fb39da7b713e4c8158.json",
+      "document_chunks": [
+        "resume-sns_header_00",
+        "resume-sns_education_00",
+        "resume-sns_skills_00",
+        "resume-sns_projects_00",
+        "resume-sns_projects_01",
+        "resume-sns_achievements_00"
+      ]
+    },
+    {
+      "candidate_id": "daniel_leve_updated_7_15-retry2",
+      "rerank_rank": 5,
+      "rerank_score": 0.486328,
+      "rank_change": 4,
+      "phase2": {
+        "hybrid_score": 0.014085,
+        "lexical_rank": null,
+        "vector_rank": 11,
+        "matched_chunks": [
+          {
+            "chunk_id": "daniel_leve_updated_7_15-retry2_skills_00",
+            "section": "skills"
+          }
+        ]
+      },
+      "source_key": "extracted/c8843614c518feb646c989b826114f0990d26b94a1e570e47686305e41469e58.json",
+      "document_chunks": [
+        "daniel_leve_updated_7_15-retry2_header_00",
+        "daniel_leve_updated_7_15-retry2_summary_00",
+        "daniel_leve_updated_7_15-retry2_skills_00",
+        "daniel_leve_updated_7_15-retry2_projects_00",
+        "daniel_leve_updated_7_15-retry2_projects_01",
+        "daniel_leve_updated_7_15-retry2_education_00"
+      ]
+    }
+  ]
+}

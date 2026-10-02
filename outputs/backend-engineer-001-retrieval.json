@@ -1,0 +1,224 @@
+{
+  "job_id": "backend-engineer-001",
+  "retrieval_method": "hybrid",
+  "embedding_model": "voyage-4-large",
+  "embedding_dimensions": 1024,
+  "parameters": {
+    "lexical_top_k": 15,
+    "vector_top_k": 15,
+    "final_top_k": 15,
+    "rrf_k": 60
+  },
+  "total_candidates": 11,
+  "candidates": [
+    {
+      "candidate_id": "qwodhqehd",
+      "hybrid_score": 0.142952,
+      "retrieval": {
+        "lexical_rank": 1,
+        "vector_rank": 1
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "qwodhqehd_summary_00",
+          "section": "summary"
+        },
+        {
+          "chunk_id": "qwodhqehd_projects_00",
+          "section": "projects"
+        },
+        {
+          "chunk_id": "qwodhqehd_skills_00",
+          "section": "skills"
+        },
+        {
+          "chunk_id": "qwodhqehd_experience_00",
+          "section": "experience"
+        },
+        {
+          "chunk_id": "qwodhqehd_header_00",
+          "section": "header"
+        }
+      ],
+      "source_key": "extracted/18e12c6530ee3a69b386ecbaa37b8b4ebbe51780c1564887b73544a4a40b64b2.json"
+    },
+    {
+      "candidate_id": "resume-sns",
+      "hybrid_score": 0.058102,
+      "retrieval": {
+        "lexical_rank": 4,
+        "vector_rank": 9
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "resume-sns_projects_01",
+          "section": "projects"
+        },
+        {
+          "chunk_id": "resume-sns_header_00",
+          "section": "header"
+        },
+        {
+          "chunk_id": "resume-sns_skills_00",
+          "section": "skills"
+        }
+      ],
+      "source_key": "extracted/6d29b3a477bc52094b982fc989a509689d73906f41abd1fb39da7b713e4c8158.json"
+    },
+    {
+      "candidate_id": "dharshini_sekar_resume_zoho",
+      "hybrid_score": 0.056659,
+      "retrieval": {
+        "lexical_rank": 12,
+        "vector_rank": 6
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "dharshini_sekar_resume_zoho_summary_00",
+          "section": "summary"
+        },
+        {
+          "chunk_id": "dharshini_sekar_resume_zoho_skills_00",
+          "section": "skills"
+        }
+      ],
+      "source_key": "extracted/489570ca5a6c78514dc5f0b486006b5c891d21371dae7d0039e010e57cd3876c.json"
+    },
+    {
+      "candidate_id": "yokeshwaran_k_resume-yokeshwaran-k",
+      "hybrid_score": 0.042925,
+      "retrieval": {
+        "lexical_rank": 8,
+        "vector_rank": 8
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "yokeshwaran_k_resume-yokeshwaran-k_summary_00",
+          "section": "summary"
+        },
+        {
+          "chunk_id": "yokeshwaran_k_resume-yokeshwaran-k_projects_00",
+          "section": "projects"
+        }
+      ],
+      "source_key": "extracted/0b43027e449226c14150dc2856c2ca5345c33aefc74c3aeea4337497d4e82dd5.json"
+    },
+    {
+      "candidate_id": "allan_resume___",
+      "hybrid_score": 0.02901,
+      "retrieval": {
+        "lexical_rank": 11,
+        "vector_rank": 7
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "allan_resume____summary_00",
+          "section": "summary"
+        },
+        {
+          "chunk_id": "allan_resume____skills_00",
+          "section": "skills"
+        }
+      ],
+      "source_key": "extracted/347474678db3884640fb937368009293e205d7e7997bf7fad40af810bf6c6472.json"
+    },
+    {
+      "candidate_id": "myresume",
+      "hybrid_score": 0.028624,
+      "retrieval": {
+        "lexical_rank": 7,
+        "vector_rank": null
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "myresume_experience_00",
+          "section": "experience"
+        },
+        {
+          "chunk_id": "myresume_projects_00",
+          "section": "projects"
+        }
+      ],
+      "source_key": "extracted/bbea2f1af534878e059ac5e2102445e0845c7933ae39ad3b40e481f47c908117.json"
+    },
+    {
+      "candidate_id": "vinithresume",
+      "hybrid_score": 0.028006,
+      "retrieval": {
+        "lexical_rank": 9,
+        "vector_rank": null
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "vinithresume_summary_00",
+          "section": "summary"
+        },
+        {
+          "chunk_id": "vinithresume_projects_00",
+          "section": "projects"
+        }
+      ],
+      "source_key": "extracted/eb48cb49794d6e11307477136c64361c23f58ed660acf7064d787fe6f20578c9.json"
+    },
+    {
+      "candidate_id": "resume_2026-1",
+      "hybrid_score": 0.015385,
+      "retrieval": {
+        "lexical_rank": 5,
+        "vector_rank": null
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "resume_2026-1_summary_00",
+          "section": "summary"
+        }
+      ],
+      "source_key": "extracted/dde87a9ac6f52edc49a81cc92782cdb1284c0ab80ad8b9855c6928e45454ed27.json"
+    },
+    {
+      "candidate_id": "daniel_leve_updated_7_15-retry2",
+      "hybrid_score": 0.014085,
+      "retrieval": {
+        "lexical_rank": null,
+        "vector_rank": 11
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "daniel_leve_updated_7_15-retry2_skills_00",
+          "section": "skills"
+        }
+      ],
+      "source_key": "extracted/c8843614c518feb646c989b826114f0990d26b94a1e570e47686305e41469e58.json"
+    },
+    {
+      "candidate_id": "ganeshs",
+      "hybrid_score": 0.013889,
+      "retrieval": {
+        "lexical_rank": null,
+        "vector_rank": 12
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "ganeshs_projects_01",
+          "section": "projects"
+        }
+      ],
+      "source_key": "extracted/6386a007f486d4b692d7bf465e23602039047306a1c35052aff820853f0f3b0d.json"
+    },
+    {
+      "candidate_id": "resume",
+      "hybrid_score": 0.013333,
+      "retrieval": {
+        "lexical_rank": null,
+        "vector_rank": 15
+      },
+      "matched_chunks": [
+        {
+          "chunk_id": "resume_summary_00",
+          "section": "summary"
+        }
+      ],
+      "source_key": "extracted/2e9adc8c8e8230ff80fa6439739a60883dd798edcfc281569f394ff144cb55b3.json"
+    }
+  ]
+}
