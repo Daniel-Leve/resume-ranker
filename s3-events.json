@@ -1,0 +1,58 @@
+{
+    "LambdaFunctionConfigurations": [
+        {
+            "Id": "TriggerTextractLegacy",
+            "LambdaFunctionArn": "arn:aws:lambda:ap-south-1:761595200930:function:resume-start-textract",
+            "Events": ["s3:ObjectCreated:*"],
+            "Filter": {
+                "Key": {
+                    "FilterRules": [
+                        {"Name": "Prefix", "Value": "incoming/"},
+                        {"Name": "Suffix", "Value": ".pdf"}
+                    ]
+                }
+            }
+        },
+        {
+            "Id": "TriggerTextractSaaS",
+            "LambdaFunctionArn": "arn:aws:lambda:ap-south-1:761595200930:function:resume-start-textract",
+            "Events": ["s3:ObjectCreated:*"],
+            "Filter": {
+                "Key": {
+                    "FilterRules": [
+                        {"Name": "Prefix", "Value": "tenants/"},
+                        {"Name": "Suffix", "Value": ".pdf"}
+                    ]
+                }
+            }
+        }
+    ],
+    "QueueConfigurations": [
+        {
+            "Id": "TriggerIndexingWorkerSaaS",
+            "QueueArn": "arn:aws:sqs:ap-south-1:761595200930:resume-indexing-dev",
+            "Events": ["s3:ObjectCreated:*"],
+            "Filter": {
+                "Key": {
+                    "FilterRules": [
+                        {"Name": "Prefix", "Value": "extracted/"},
+                        {"Name": "Suffix", "Value": ".json"}
+                    ]
+                }
+            }
+        },
+        {
+            "Id": "TriggerIndexingWorkerSaaS_Direct",
+            "QueueArn": "arn:aws:sqs:ap-south-1:761595200930:resume-indexing-dev",
+            "Events": ["s3:ObjectCreated:*"],
+            "Filter": {
+                "Key": {
+                    "FilterRules": [
+                        {"Name": "Prefix", "Value": "tenants/"},
+                        {"Name": "Suffix", "Value": ".json"}
+                    ]
+                }
+            }
+        }
+    ]
+}

@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "resume-screening-saas"
+resolve_s3 = true
+s3_prefix = "resume-screening-saas"
+region = "ap-south-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "StageName=\"dev\" ResumeBucketName=\"ai-resume-screening-dev-761595200930\""
+image_repositories = []
+
+[default.global.parameters]
+region = "ap-south-1"

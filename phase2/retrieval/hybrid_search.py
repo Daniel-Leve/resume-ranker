@@ -74,6 +74,8 @@ def hybrid_search(
     output_dir: str = "outputs",
     lexical_top_k: Optional[int] = None,
     vector_top_k: Optional[int] = None,
+    tenant_id: Optional[str] = None,
+    job_id: Optional[str] = None,
 ) -> HybridSearchOutput:
     """
     Execute hybrid retrieval for a job description file.
@@ -84,6 +86,8 @@ def hybrid_search(
         output_dir:    Directory where ``<job-id>-retrieval.json`` is written.
         lexical_top_k: Override for BM25 chunk retrieval depth.
         vector_top_k:  Override for vector search chunk retrieval depth.
+        tenant_id:     SaaS mode — scope all queries to this tenant.
+        job_id:        SaaS mode — scope all queries to this specific job.
 
     Returns:
         HybridSearchOutput with provenance-annotated candidates.
@@ -97,17 +101,19 @@ def hybrid_search(
     if not jd_path.exists():
         raise FileNotFoundError(f"Job description not found: {jd_path}")
 
-    job_id = jd_path.stem  # e.g. "backend-engineer-001"
+    job_id_from_file = jd_path.stem  # e.g. "backend-engineer-001"
     jd_raw = jd_path.read_text(encoding="utf-8")
     jd_text = _normalize_jd(jd_raw)
 
     logger.info("=== Phase 2 Hybrid Search ===")
-    logger.info("Job ID:  %s", job_id)
+    logger.info("Job ID:  %s", job_id_from_file)
     logger.info("JD size: %d characters", len(jd_text))
     logger.info(
         "Params:  lex_top_k=%d  vec_top_k=%d  final_top_k=%d  rrf_k=%d",
         lex_k, vec_k, final_k, config.RRF_K,
     )
+    if tenant_id:
+        logger.info("Tenant:  %s  (SaaS mode)", tenant_id)
 
     # ── Embed job description ──────────────────────────────────────────────────
     logger.info("Embedding JD with %s (input_type=query)...", config.VOYAGE_MODEL)
@@ -125,10 +131,14 @@ def hybrid_search(
 
         # ── Retrieve ───────────────────────────────────────────────────────────
         logger.info("Running BM25 (lexical) search, top_k=%d...", lex_k)
-        lex_hits = lexical_search(collection, jd_text, top_k=lex_k)
+        lex_hits = lexical_search(
+            collection, jd_text, top_k=lex_k, tenant_id=tenant_id, job_id=job_id
+        )
 
         logger.info("Running vector (semantic) search, top_k=%d...", vec_k)
-        vec_hits = vector_search(collection, jd_embedding, top_k=vec_k)
+        vec_hits = vector_search(
+            collection, jd_embedding, top_k=vec_k, tenant_id=tenant_id, job_id=job_id
+        )
 
         # ── Fuse ───────────────────────────────────────────────────────────────
         fused = fuse_results(lex_hits, vec_hits, final_top_k=final_k, rrf_k=config.RRF_K)
@@ -136,11 +146,12 @@ def hybrid_search(
     finally:
         mongo_client.close()
 
+
     # ── Build output ───────────────────────────────────────────────────────────
     candidates = [_provenance_to_result(p) for p in fused]
 
     output = HybridSearchOutput(
-        job_id=job_id,
+        job_id=job_id_from_file,
         retrieval_method="hybrid",
         embedding_model=config.VOYAGE_MODEL,
         embedding_dimensions=config.VOYAGE_EMBEDDING_DIMENSIONS,
@@ -154,7 +165,7 @@ def hybrid_search(
     )
 
     # ── Write output ───────────────────────────────────────────────────────────
-    out_path = Path(output_dir) / f"{job_id}-retrieval.json"
+    out_path = Path(output_dir) / f"{job_id_from_file}-retrieval.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(
         json.dumps(output.to_dict(), indent=2, ensure_ascii=False),
@@ -168,7 +179,7 @@ def hybrid_search(
 
     sep = "─" * 52
     logger.info(sep)
-    logger.info("Results for job: %s", job_id)
+    logger.info("Results for job: %s", job_id_from_file)
     logger.info("  BM25 unique candidates:    %3d", len(lex_candidate_ids))
     logger.info("  Vector unique candidates:  %3d", len(vec_candidate_ids))
     logger.info("  In both (overlap):         %3d", len(overlap))

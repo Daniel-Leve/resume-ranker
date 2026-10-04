@@ -49,6 +49,7 @@ from phase2 import config
 from phase2.indexer.chunker import TextChunk, chunk_resume, compute_content_hash
 from phase2.indexer.embedder import embed_texts
 from phase2.models.schemas import CandidateChunk
+from phase2.storage.s3_paths import parse_s3_key
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +217,17 @@ def index_all(
             stats["candidates_failed"] += 1
             continue
 
+        # ── Parse S3 path context (SaaS vs legacy) ────────────────────────────
+        # In SaaS mode: key = tenants/{tid}/jobs/{jid}/applications/{aid}/extracted.json
+        # In legacy mode: key = extracted/<textract-job-id>.json
+        path_ctx = parse_s3_key(key)
+
+        if path_ctx.is_multitenant:
+            logger.debug(
+                "SaaS path — tenant=%s  job=%s  application=%s",
+                path_ctx.tenant_id, path_ctx.job_id, path_ctx.application_id,
+            )
+
         # ── Derive candidate_id ───────────────────────────────────────────────
         # Use the original PDF path stored in source.key, not the Textract job-id key.
         source_file_key: str = data.get("source", {}).get("key", key)
@@ -312,6 +324,11 @@ def index_all(
                     "page_end": chunk.page_end,
                     "source_s3_bucket": bucket,
                 },
+                # Multi-tenancy: populated in SaaS mode, None in legacy mode.
+                # to_mongo_doc() only serialises these when non-None.
+                tenant_id=path_ctx.tenant_id,
+                job_id=path_ctx.job_id,
+                application_id=path_ctx.application_id,
             ).to_mongo_doc()
             chunk_docs.append(doc)
 
