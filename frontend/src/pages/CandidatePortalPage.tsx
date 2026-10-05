@@ -12,10 +12,14 @@ interface CandidatePortalPageProps {
   screeningRun: ScreeningRun | null;
   onApplyForJob: (job: Job) => void;
   session?: UserSession | null;
+  activeNav?: string;
+  onNavigate?: (page: string) => void;
 }
 
-export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session }: CandidatePortalPageProps) {
-  const [activeTab, setActiveTab] = useState<'jobs' | 'my-applications'>('jobs');
+export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session, activeNav, onNavigate }: CandidatePortalPageProps) {
+  const [activeTab, setActiveTab] = useState<'jobs' | 'my-applications'>(() => {
+    return activeNav === 'candidate-applications' ? 'my-applications' : 'jobs';
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [myApps, setMyApps] = useState<StudentApplicationRecord[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
@@ -38,6 +42,14 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
   useEffect(() => {
     loadUserApplications();
   }, [session]);
+
+  useEffect(() => {
+    if (activeNav === 'candidate-applications') {
+      setActiveTab('my-applications');
+    } else if (activeNav === 'candidate-portal') {
+      setActiveTab('jobs');
+    }
+  }, [activeNav]);
 
   const handleRemoveApplication = (app: StudentApplicationRecord) => {
     if (window.confirm(`Are you sure you want to withdraw your application for "${app.job_title}"?`)) {
@@ -73,7 +85,10 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
           <div style={{ display: 'flex', gap: '0.75rem' }}>
             <button
               className={`btn ${activeTab === 'jobs' ? 'btn-primary' : 'btn-secondary'}`}
-              onClick={() => setActiveTab('jobs')}
+              onClick={() => {
+                setActiveTab('jobs');
+                onNavigate?.('candidate-portal');
+              }}
             >
               <Briefcase size={14} /> Open Roles ({jobs.length})
             </button>
@@ -82,6 +97,7 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
               onClick={() => {
                 loadUserApplications();
                 setActiveTab('my-applications');
+                onNavigate?.('candidate-applications');
               }}
             >
               <FileText size={14} /> My Applications ({myApps.length})

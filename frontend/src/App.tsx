@@ -239,15 +239,24 @@ export function App() {
       onLogout={handleLogout}
     >
       {userRole === 'candidate' ? (
-        <CandidatePortalPage
-          jobs={jobs}
-          screeningRun={screeningRun}
-          session={userSession}
-          onApplyForJob={(job) => {
-            setActiveJob(job);
-            setIsUploadOpen(true);
-          }}
-        />
+        activeNav === 'settings' ? (
+          <SettingsPage
+            onOpenConfig={() => setIsConfigOpen(true)}
+            session={userSession}
+          />
+        ) : (
+          <CandidatePortalPage
+            jobs={jobs}
+            screeningRun={screeningRun}
+            session={userSession}
+            activeNav={activeNav}
+            onNavigate={(p) => handleNavigate(p)}
+            onApplyForJob={(job) => {
+              setActiveJob(job);
+              setIsUploadOpen(true);
+            }}
+          />
+        )
       ) : (
         <>
           {activeNav === 'overview' && (
@@ -294,6 +303,7 @@ export function App() {
           {activeNav === 'settings' && (
             <SettingsPage
               onOpenConfig={() => setIsConfigOpen(true)}
+              session={userSession}
             />
           )}
         </>

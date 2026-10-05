@@ -95,6 +95,14 @@ export function AppShell({ children, activeNav, userRole, session, onNavigate, o
                 <FileText size={18} />
                 <span>My Applications</span>
               </button>
+
+              <button
+                className={`nav-item ${activeNav === 'settings' ? 'active' : ''}`}
+                onClick={() => onNavigate('settings')}
+              >
+                <Settings size={18} />
+                <span>Profile & Saved Resume</span>
+              </button>
             </>
           )}
         </nav>
