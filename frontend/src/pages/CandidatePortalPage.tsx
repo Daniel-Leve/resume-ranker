@@ -5,27 +5,45 @@ import { getStudentApplications, removeStudentApplication } from '../utils/stude
 import { formatCandidateId, formatS3Key, getJobCandidateCount } from '../utils/formatters';
 import { decrementJobApplicationCount } from '../api/jobs';
 
+import { UserSession } from '../utils/authStore';
+
 interface CandidatePortalPageProps {
   jobs: Job[];
   screeningRun: ScreeningRun | null;
   onApplyForJob: (job: Job) => void;
+  session?: UserSession | null;
 }
 
-export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob }: CandidatePortalPageProps) {
+export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session }: CandidatePortalPageProps) {
   const [activeTab, setActiveTab] = useState<'jobs' | 'my-applications'>('jobs');
   const [searchQuery, setSearchQuery] = useState('');
   const [myApps, setMyApps] = useState<StudentApplicationRecord[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
+  const loadUserApplications = () => {
+    const all = getStudentApplications();
+    if (session?.role === 'candidate') {
+      const sessEmail = session.email?.toLowerCase().trim();
+      const sessName = session.name?.toLowerCase().trim();
+      setMyApps(all.filter(a =>
+        (sessEmail && a.candidate_email?.toLowerCase().trim() === sessEmail) ||
+        (sessName && a.candidate_name.toLowerCase().trim() === sessName) ||
+        a.application_id === session.candidateId
+      ));
+    } else {
+      setMyApps(all);
+    }
+  };
+
   useEffect(() => {
-    setMyApps(getStudentApplications());
-  }, []);
+    loadUserApplications();
+  }, [session]);
 
   const handleRemoveApplication = (app: StudentApplicationRecord) => {
     if (window.confirm(`Are you sure you want to withdraw your application for "${app.job_title}"?`)) {
       removeStudentApplication(app.application_id);
       decrementJobApplicationCount(app.job_id);
-      setMyApps(getStudentApplications());
+      loadUserApplications();
     }
   };
 
@@ -62,7 +80,7 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob }: Candi
             <button
               className={`btn ${activeTab === 'my-applications' ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => {
-                setMyApps(getStudentApplications());
+                loadUserApplications();
                 setActiveTab('my-applications');
               }}
             >

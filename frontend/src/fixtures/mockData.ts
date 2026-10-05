@@ -17,6 +17,7 @@ export const MOCK_JOBS: Job[] = [
     status: "OPEN",
     application_count: 3,
     created_at: new Date(Date.now() - 86400000).toISOString(),
+    recruiter_email: "recruiter@acme.com"
   },
   {
     job_id: "619b93c8-5eac-42b7-aa9d-417a95a9f550",
@@ -28,6 +29,7 @@ export const MOCK_JOBS: Job[] = [
     status: "OPEN",
     application_count: 3,
     created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
+    recruiter_email: "recruiter@acme.com"
   },
   {
     job_id: "python-data-engineer-001",
@@ -39,6 +41,7 @@ export const MOCK_JOBS: Job[] = [
     status: "OPEN",
     application_count: 2,
     created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
+    recruiter_email: "recruiter@acme.com"
   },
   {
     job_id: "frontend-react-engineer-002",
@@ -50,6 +53,7 @@ export const MOCK_JOBS: Job[] = [
     status: "OPEN",
     application_count: 1,
     created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+    recruiter_email: "recruiter@acme.com"
   }
 ];
 

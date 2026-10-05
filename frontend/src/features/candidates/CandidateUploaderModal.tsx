@@ -6,20 +6,24 @@ import { Job } from '../../types';
 import { registerCandidateName } from '../../utils/formatters';
 import { saveStudentApplication } from '../../utils/studentStore';
 
+import { UserSession } from '../../utils/authStore';
+
 interface CandidateUploaderModalProps {
   isOpen: boolean;
   onClose: () => void;
   activeJob: Job | null;
   onUploadSuccess: () => void;
+  session?: UserSession | null;
 }
 
 export function CandidateUploaderModal({
   isOpen,
   onClose,
   activeJob,
-  onUploadSuccess
+  onUploadSuccess,
+  session
 }: CandidateUploaderModalProps) {
-  const [candidateName, setCandidateName] = useState('');
+  const [candidateName, setCandidateName] = useState(() => session?.name || '');
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'idle' | 'presigning' | 'uploading' | 'processing' | 'success' | 'error'>('idle');
@@ -41,7 +45,8 @@ export function CandidateUploaderModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!candidateName.trim()) {
+    const finalName = candidateName.trim() || session?.name || 'Candidate';
+    if (!finalName) {
       setErrorMsg('Candidate name is required.');
       return;
     }
@@ -58,17 +63,18 @@ export function CandidateUploaderModal({
 
       // Step 1: Register application & obtain presigned S3 URL
       setStep('presigning');
-      const appData = await createApplication(jobId, candidateName.trim());
+      const appData = await createApplication(jobId, finalName);
 
       // Register candidate name in local name registry & student applications
-      registerCandidateName(appData.application_id, candidateName.trim());
-      if (appData.s3_key) registerCandidateName(appData.s3_key, candidateName.trim());
+      registerCandidateName(appData.application_id, finalName);
+      if (appData.s3_key) registerCandidateName(appData.s3_key, finalName);
 
       saveStudentApplication({
         application_id: appData.application_id,
         job_id: jobId,
         job_title: activeJob ? activeJob.title : 'General Application',
-        candidate_name: candidateName.trim(),
+        candidate_name: finalName,
+        candidate_email: session?.email,
         s3_key: appData.s3_key,
         applied_at: new Date().toISOString(),
         status: 'SUBMITTED'

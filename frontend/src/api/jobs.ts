@@ -58,7 +58,9 @@ export async function createJob(tenantId: string, input: CreateJobInput): Promis
       location: input.location || "Remote",
       status: "OPEN",
       application_count: 0,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      recruiter_email: input.recruiter_email || 'recruiter@acme.com',
+      recruiter_name: input.recruiter_name || 'Acme Recruiter'
     };
     MOCK_JOBS.unshift(newJob);
   } else {
@@ -72,6 +74,8 @@ export async function createJob(tenantId: string, input: CreateJobInput): Promis
       description: input.description,
       department: input.department || "Engineering",
       location: input.location || "Remote",
+      recruiter_email: input.recruiter_email || 'recruiter@acme.com',
+      recruiter_name: input.recruiter_name || 'Acme Recruiter'
     };
   }
 
