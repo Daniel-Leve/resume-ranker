@@ -1,7 +1,8 @@
-import React from 'react';
-import { LayoutDashboard, Briefcase, PlaySquare, Settings, Server, UserCheck, GraduationCap, FileText } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, Briefcase, PlaySquare, Settings, Server, UserCheck, GraduationCap, FileText, Sun, Moon } from 'lucide-react';
 import { isMockMode, getApiBaseUrl } from '../../api/client';
 import { UserRole } from '../../types';
+import { getInitialTheme, applyTheme, ThemeMode } from '../../utils/theme';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -15,6 +16,13 @@ interface AppShellProps {
 export function AppShell({ children, activeNav, userRole, onNavigate, onToggleRole, onOpenConfig }: AppShellProps) {
   const mockEnabled = isMockMode();
   const apiBaseUrl = getApiBaseUrl();
+  const [currentTheme, setCurrentTheme] = useState<ThemeMode>(getInitialTheme());
+
+  const toggleTheme = () => {
+    const nextTheme: ThemeMode = currentTheme === 'dark' ? 'light' : 'dark';
+    setCurrentTheme(nextTheme);
+    applyTheme(nextTheme);
+  };
 
   return (
     <div className="app-shell">
@@ -110,6 +118,16 @@ export function AppShell({ children, activeNav, userRole, onNavigate, onToggleRo
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            {/* Quick Theme Toggle Button */}
+            <button
+              className="btn btn-secondary btn-icon"
+              style={{ width: '34px', height: '34px', borderRadius: '8px', padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={toggleTheme}
+              title={`Switch to ${currentTheme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            >
+              {currentTheme === 'dark' ? <Sun size={16} style={{ color: '#f59e0b' }} /> : <Moon size={16} style={{ color: 'var(--accent-primary)' }} />}
+            </button>
+
             {/* Role Switcher Toggle */}
             <div style={{ display: 'inline-flex', backgroundColor: 'var(--bg-app)', padding: '0.2rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
               <button
