@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SaaS Frontend Integration Test</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; background: #f9f9f9; color: #333; }
+        .step { background: white; border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        button { padding: 10px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #0056b3; }
+        pre { background: #282c34; color: #abb2bf; padding: 15px; overflow-x: auto; border-radius: 4px; font-size: 14px; }
+        h1 { text-align: center; color: #2c3e50; }
+        input[type="file"] { margin-right: 15px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Frontend API Integration Tester</h1>
+    <p style="text-align: center;">Share this file with your friend! Press <b>F12</b> to open the Browser Developer Tools and watch the Network requests.</p>
+    
+    <div class="step">
+        <h3>Step 1: Setup IDs (API Gateway CORS Test)</h3>
+        <p>This tests if the API Gateway allows POST requests from a web browser.</p>
+        <button onclick="createSetup()">Create Tenant & Job</button>
+        <pre id="out1">Awaiting action...</pre>
+    </div>
+
+    <div class="step">
+        <h3>Step 2: Upload Resume (S3 CORS Test)</h3>
+        <p>This gets a Presigned URL and tests if the browser is allowed to PUT the file directly into the AWS S3 bucket.</p>
+        <input type="file" id="resumeFile" accept="application/pdf">
+        <button onclick="uploadResume()">Upload to S3</button>
+        <pre id="out2">Awaiting action...</pre>
+    </div>
+
+    <div class="step">
+        <h3>Step 3: Trigger & View Screening</h3>
+        <p>This tests the background AWS polling mechanism.</p>
+        <button onclick="runScreening()">Start AI Screening</button>
+        <pre id="out3">Awaiting action...</pre>
+    </div>
+
+    <script>
+        const API_URL = "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev";
+        let tenantId, jobId, uploadUrl;
+
+        function log(id, msg) { document.getElementById(id).innerText = msg; }
+
+        async function createSetup() {
+            try {
+                log("out1", "Creating Tenant...");
+                let res = await fetch(`${API_URL}/tenants`, {
+                    method: "POST", headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ name: "Frontend Test Corp" })
+                });
+                let data = await res.json();
+                tenantId = data.tenant_id;
+
+                log("out1", `Tenant Created: ${tenantId}\nCreating Job...`);
+                let res2 = await fetch(`${API_URL}/tenants/${tenantId}/jobs`, {
+                    method: "POST", headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ title: "Frontend React Developer", description: "Looking for strong frontend integration skills." })
+                });
+                let data2 = await res2.json();
+                jobId = data2.job_id;
+
+                log("out1", `✅ SUCCESS!\n\nTenant ID: ${tenantId}\nJob ID: ${jobId}`);
+            } catch(e) { log("out1", "❌ ERROR: " + e.message); }
+        }
+
+        async function uploadResume() {
+            let fileInput = document.getElementById('resumeFile');
+            if(!fileInput.files.length) return alert("Please select a PDF file first!");
+            if(!jobId) return alert("Please run Step 1 first!");
+
+            try {
+                log("out2", "1. Requesting secure S3 upload URL from API...");
+                let res = await fetch(`${API_URL}/jobs/${jobId}/applications`, {
+                    method: "POST", headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ candidate_name: "Browser Tester" })
+                });
+                let data = await res.json();
+                uploadUrl = data.upload_url;
+
+                log("out2", "2. Uploading PDF directly to S3...\n(If CORS fails, it happens here!)");
+                
+                // This will succeed because we applied the S3 CORS fix!
+                let s3Res = await fetch(uploadUrl, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/pdf" },
+                    body: fileInput.files[0]
+                });
+                
+                if(!s3Res.ok) throw new Error("S3 Upload Failed: " + s3Res.statusText);
+                log("out2", "✅ SUCCESS! PDF Uploaded to S3 via Browser.\n\n⚠️ WAIT 60 SECONDS for AWS to process the PDF before clicking Step 3.");
+            } catch(e) { log("out2", "❌ ERROR: " + e.message); }
+        }
+
+        async function runScreening() {
+            if(!jobId) return alert("Please run Step 1 first!");
+            try {
+                log("out3", "Triggering screening...");
+                await fetch(`${API_URL}/jobs/${jobId}/screening`, { method: "POST" });
+                
+                log("out3", "Screening queued! Polling for results every 5 seconds...");
+                
+                // Poll every 5 seconds
+                const interval = setInterval(async () => {
+                    let res = await fetch(`${API_URL}/jobs/${jobId}/screening-results`);
+                    let data = await res.json();
+                    
+                    log("out3", "LIVE STATUS: " + data.status + "\n\n" + JSON.stringify(data, null, 2));
+                    
+                    if (data.status === "COMPLETED") {
+                        clearInterval(interval);
+                    }
+                }, 5000);
+            } catch(e) { log("out3", "❌ ERROR: " + e.message); }
+        }
+    </script>
+</body>
+</html>

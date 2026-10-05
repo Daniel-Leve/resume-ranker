@@ -132,6 +132,24 @@ def _post_job(event: dict) -> dict:
     return _response(201, {"job_id": job_id, "tenant_id": tenant_id, "title": title, "status": "OPEN"})
 
 
+def _get_jobs(event: dict) -> dict:
+    """
+    GET /tenants/{tenant_id}/jobs
+    Returns a list of all jobs for the tenant.
+    """
+    params = event.get("pathParameters") or {}
+    tenant_id = params.get("tenant_id")
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        tenant = db["tenants"].find_one({"_id": tenant_id})
+        if not tenant:
+            return _response(404, {"error": "Tenant not found."})
+            
+        jobs = list(db["jobs"].find({"tenant_id": tenant_id}))
+        return _response(200, {"jobs": jobs})
+
+
 def _get_job(event: dict) -> dict:
     """
     GET /tenants/{tenant_id}/jobs/{job_id}
@@ -310,6 +328,7 @@ def _get_screening_results(event: dict) -> dict:
 _ROUTES = {
     ("POST",  "/tenants"):                            _post_tenant,
     ("POST",  "/tenants/{tenant_id}/jobs"):           _post_job,
+    ("GET",   "/tenants/{tenant_id}/jobs"):           _get_jobs,
     ("GET",   "/tenants/{tenant_id}/jobs/{job_id}"):  _get_job,
     ("POST",  "/jobs/{job_id}/applications"):         _post_application,
     ("POST",  "/jobs/{job_id}/screening"):            _post_screening,

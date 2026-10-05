@@ -1,0 +1,79 @@
+===========================================================
+    AI RESUME SCREENING SAAS - END-TO-END API GUIDE
+===========================================================
+BASE URL: https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev
+-----------------------------------------------------------
+
+This file outlines the exact sequence of API calls required to test the system from scratch.
+
+--- STEP 1: CREATE A COMPANY (TENANT) ---
+Endpoint: POST /tenants
+Purpose:  Registers a new company in the system.
+Body:     {"name": "Your Company Name"}
+
+Example Command:
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/tenants" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"name": "Stark Industries"}'
+
+-> SAVE THE OUTPUT: You will receive a `tenant_id`. You need this for Step 2.
+
+
+--- STEP 2: CREATE A JOB POSTING ---
+Endpoint: POST /tenants/{tenant_id}/jobs
+Purpose:  Creates a job requirement for the company.
+URL Input: Replace {tenant_id} with the ID from Step 1.
+Body:     {"title": "Job Title", "description": "Long text describing required skills"}
+
+Example Command (Replace YOUR_TENANT_ID):
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/tenants/YOUR_TENANT_ID/jobs" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"title": "Software Engineer", "description": "Looking for a Python backend engineer with AWS and MongoDB experience."}'
+
+-> SAVE THE OUTPUT: You will receive a `job_id`. You need this for all remaining steps.
+
+
+--- STEP 3: REGISTER AN APPLICANT ---
+Endpoint: POST /jobs/{job_id}/applications
+Purpose:  Registers a candidate for the job and generates a secure S3 upload URL.
+URL Input: Replace {job_id} with the ID from Step 2.
+Body:     {"candidate_name": "Applicant Name"}
+
+Example Command (Replace YOUR_JOB_ID):
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/YOUR_JOB_ID/applications" -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"candidate_name": "Tony Stark"}'
+
+-> SAVE THE OUTPUT: You will receive an `upload_url`. You need this for Step 4.
+
+
+--- STEP 4: UPLOAD THE RESUME PDF ---
+Endpoint: PUT {upload_url}
+Purpose:  Uploads the actual PDF file directly to S3.
+URL Input: The raw `upload_url` from Step 3.
+
+Example Command:
+# 1. Paste the URL from Step 3 here:
+$raw_url = "PASTE_YOUR_UPLOAD_URL_HERE"
+# 2. Clean it (PowerShell often breaks long URLs):
+$clean_url = $raw_url -replace "\s+", ""
+# 3. Upload the file:
+Invoke-RestMethod -Uri $clean_url -Method PUT -InFile "C:\Path\To\Resume.pdf" -ContentType "application/pdf"
+
+-> WAIT: After this command, wait ~60 seconds for Textract and the background IndexingWorker to finish analyzing the PDF.
+
+
+--- STEP 5: TRIGGER THE AI SCREENING ---
+Endpoint: POST /jobs/{job_id}/screening
+Purpose:  Tells the background AI workers to compare all resumes against the Job Description.
+URL Input: Replace {job_id} with the ID from Step 2.
+
+Example Command (Replace YOUR_JOB_ID):
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/YOUR_JOB_ID/screening" -Method POST
+
+-> SAVE THE OUTPUT: You will receive a `screening_run_id`.
+
+
+--- STEP 6: VIEW FINAL RANKED RESULTS ---
+Endpoint: GET /jobs/{job_id}/screening-results
+Purpose:  Retrieves the final leaderboard of ranked candidates.
+URL Input: Replace {job_id} with the ID from Step 2.
+
+Example Command (Replace YOUR_JOB_ID):
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/YOUR_JOB_ID/screening-results" -Method GET
+
+-> Repeat Step 6 until the `status` changes from QUEUED to COMPLETED. You will see the array of candidates ranked by relevance!

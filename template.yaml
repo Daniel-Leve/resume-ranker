@@ -148,6 +148,12 @@ Resources:
             RestApiId: !Ref ResumeScreeningApi
             Path: /tenants/{tenant_id}/jobs
             Method: POST
+        GetJobs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /tenants/{tenant_id}/jobs
+            Method: GET
         GetJob:
           Type: Api
           Properties:
