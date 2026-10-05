@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Briefcase, GraduationCap, ArrowRight, Lock, Mail, User, LogIn, UserPlus } from 'lucide-react';
+import { Briefcase, GraduationCap, ArrowRight, Lock, Mail, User } from 'lucide-react';
 import { UserSession, saveSession, registerUserAccount, findUserAccount } from '../../utils/authStore';
 
 interface LoginPageProps {
@@ -56,7 +56,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
       // If user is logging in for the first time, auto-register them cleanly
       if (!account) {
-        const defaultName = name.trim() || (trimmedEmail.split('@')[0] ? trimmedEmail.split('@')[0] : role === 'recruiter' ? 'Recruiter User' : 'Candidate User');
+        const defaultName = trimmedEmail.split('@')[0] ? trimmedEmail.split('@')[0] : (role === 'recruiter' ? 'Recruiter User' : 'Candidate User');
         account = registerUserAccount({
           name: defaultName,
           email: trimmedEmail,
@@ -95,15 +95,15 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         style={{
           width: '100%',
           maxWidth: '440px',
-          padding: '2rem',
+          padding: '2.25rem',
           borderRadius: '16px',
-          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.35)',
+          boxShadow: '0 20px 40px rgba(0, 0, 0, 0.25)',
           border: '1px solid var(--border-strong)',
           backdropFilter: 'blur(20px)'
         }}
       >
         {/* Brand Header */}
-        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
           <div
             style={{
               width: '48px',
@@ -122,61 +122,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           >
             RR
           </div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-main)' }}>Resume Ranker</h1>
+          <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)' }}>Resume Ranker</h1>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
             {mode === 'login' ? 'Sign in to access your workspace' : 'Create your new workspace account'}
           </p>
         </div>
 
-        {/* Login / Register Toggle Tabs */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            backgroundColor: 'var(--bg-app)',
-            padding: '0.25rem',
-            borderRadius: '10px',
-            border: '1px solid var(--border-color)',
-            marginBottom: '1.25rem'
-          }}
-        >
-          <button
-            type="button"
-            className={`btn ${mode === 'login' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{
-              padding: '0.45rem',
-              fontSize: '0.82rem',
-              justifyContent: 'center',
-              border: mode === 'login' ? undefined : 'none'
-            }}
-            onClick={() => {
-              setMode('login');
-              setErrorMsg('');
-            }}
-          >
-            <LogIn size={14} /> Sign In
-          </button>
-
-          <button
-            type="button"
-            className={`btn ${mode === 'register' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{
-              padding: '0.45rem',
-              fontSize: '0.82rem',
-              justifyContent: 'center',
-              border: mode === 'register' ? undefined : 'none'
-            }}
-            onClick={() => {
-              setMode('register');
-              setErrorMsg('');
-            }}
-          >
-            <UserPlus size={14} /> Register
-          </button>
-        </div>
-
         {/* Role Selector */}
-        <div style={{ marginBottom: '1.25rem' }}>
+        <div style={{ marginBottom: '1.5rem' }}>
           <label className="form-label" style={{ fontSize: '0.78rem', marginBottom: '0.4rem' }}>Select Role</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <button
@@ -227,9 +180,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {(mode === 'register' || mode === 'login') && (
+          {mode === 'register' && (
             <div className="form-group">
-              <label className="form-label">{mode === 'register' ? 'Full Name' : 'Full Name (Optional for Sign In)'}</label>
+              <label className="form-label">Full Name</label>
               <div style={{ position: 'relative' }}>
                 <User size={16} style={{ position: 'absolute', left: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
@@ -239,7 +192,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   placeholder={role === 'recruiter' ? 'e.g. Acme Recruiter' : 'e.g. Jane Doe'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  required={mode === 'register'}
+                  required
                 />
               </div>
             </div>
@@ -290,6 +243,39 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             {mode === 'login' ? 'Sign In to Workspace' : 'Create Account & Continue'} <ArrowRight size={16} />
           </button>
         </form>
+
+        {/* Text link below button to switch between Login and Register */}
+        <div style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+          {mode === 'login' ? (
+            <>
+              Don't have an account?{' '}
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                onClick={() => {
+                  setMode('register');
+                  setErrorMsg('');
+                }}
+              >
+                Create Account
+              </button>
+            </>
+          ) : (
+            <>
+              Already have an account?{' '}
+              <button
+                type="button"
+                style={{ background: 'none', border: 'none', color: 'var(--accent-primary)', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                onClick={() => {
+                  setMode('login');
+                  setErrorMsg('');
+                }}
+              >
+                Sign In
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, FileText, Upload, CheckCircle2, Search, ArrowRight, UserCheck, Clock, Award, Layers, Trash2 } from 'lucide-react';
+import { Briefcase, FileText, Upload, CheckCircle2, Search, ArrowRight, UserCheck, Clock, Award, Layers, Trash2, Eye, X } from 'lucide-react';
 import { Job, StudentApplicationRecord, ScreeningRun } from '../types';
-import { getStudentApplications, removeStudentApplication } from '../utils/studentStore';
+import { getStudentApplications, removeStudentApplication, updateStudentApplicationScores } from '../utils/studentStore';
 import { formatCandidateId, formatS3Key, getJobCandidateCount } from '../utils/formatters';
 import { decrementJobApplicationCount } from '../api/jobs';
 
@@ -23,6 +23,7 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
   const [searchQuery, setSearchQuery] = useState('');
   const [myApps, setMyApps] = useState<StudentApplicationRecord[]>([]);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [viewingJob, setViewingJob] = useState<Job | null>(null);
 
   const loadUserApplications = () => {
     const all = getStudentApplications();
@@ -44,6 +45,13 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
   }, [session]);
 
   useEffect(() => {
+    if (screeningRun?.candidates && screeningRun.candidates.length > 0) {
+      updateStudentApplicationScores(screeningRun.candidates);
+      loadUserApplications();
+    }
+  }, [screeningRun]);
+
+  useEffect(() => {
     if (activeNav === 'candidate-applications') {
       setActiveTab('my-applications');
     } else if (activeNav === 'candidate-portal') {
@@ -62,6 +70,8 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
   const filteredJobs = jobs.filter(j =>
     j.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (j.department && j.department.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (j.recruiter_name && j.recruiter_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+    (j.recruiter_email && j.recruiter_email.toLowerCase().includes(searchQuery.toLowerCase())) ||
     (j.description && j.description.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
@@ -148,26 +158,37 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
 
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '0.35rem' }}>{job.title}</h3>
 
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.85rem' }}>
-                    {job.department || 'Engineering'} &bull; {job.location || 'Remote'}
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    <span>Posted by:</span>
+                    <strong style={{ color: 'var(--accent-primary)' }}>{job.recruiter_name || 'Acme Hiring Team'}</strong>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>({job.recruiter_email || 'recruiter@company.com'})</span>
                   </div>
 
-                  <p style={{ fontSize: '0.825rem', lineHeight: '1.5', color: 'var(--text-muted)', marginBottom: '1.25rem', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {job.description}
-                  </p>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '0.85rem' }}>
+                    Dept: <strong>{job.department || 'Engineering'}</strong> &bull; Location: <strong>{job.location || 'Remote'}</strong>
+                  </div>
+
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.85rem', borderTop: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.85rem', borderTop: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
                     Applicants: {getJobCandidateCount(job, screeningRun)} &bull; Posted: {new Date(job.created_at).toLocaleDateString()}
                   </span>
 
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => onApplyForJob(job)}
-                  >
-                    <Upload size={14} /> Apply Now <ArrowRight size={13} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setViewingJob(job)}
+                    >
+                      <Eye size={14} /> View Job
+                    </button>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => onApplyForJob(job)}
+                    >
+                      <Upload size={14} /> Apply Now <ArrowRight size={13} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -204,6 +225,9 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
                         <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>{app.job_title}</h3>
                         <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                           Applicant Name: <strong>{app.candidate_name}</strong> &bull; Applied on: {new Date(app.applied_at).toLocaleString()}
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                          Shared by Recruiter: <strong style={{ color: 'var(--accent-primary)' }}>{app.recruiter_name || 'Hiring Recruiter'}</strong> (<span style={{ color: 'var(--text-main)' }}>{app.recruiter_email || 'recruiter@company.com'}</span>) &bull; Dept: <span>{app.department || 'Engineering'}</span>
                         </div>
                       </div>
 
@@ -267,6 +291,64 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob, session
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* View Job Details Modal */}
+      {viewingJob && (
+        <div className="modal-overlay" onClick={() => setViewingJob(null)}>
+          <div className="modal-box" style={{ maxWidth: '640px', width: '100%' }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <div>
+                <span className="status-badge badge-emerald" style={{ marginBottom: '0.35rem' }}>Open Requisition</span>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-main)' }}>{viewingJob.title}</h2>
+              </div>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setViewingJob(null)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '1.25rem' }}>
+              <div style={{ backgroundColor: 'var(--bg-app)', padding: '0.85rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.82rem' }}>
+                <div>
+                  <span style={{ color: 'var(--text-dim)' }}>Hiring Recruiter:</span>
+                  <div style={{ fontWeight: 700, color: 'var(--accent-primary)' }}>{viewingJob.recruiter_name || 'Acme Hiring Team'}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{viewingJob.recruiter_email || 'recruiter@company.com'}</div>
+                </div>
+
+                <div>
+                  <span style={{ color: 'var(--text-dim)' }}>Role Details:</span>
+                  <div style={{ fontWeight: 700, color: 'var(--text-main)' }}>{viewingJob.department || 'Engineering'}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{viewingJob.location || 'Remote'}</div>
+                </div>
+              </div>
+
+              <div>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                  Full Job Description & Requirements
+                </h4>
+                <div style={{ backgroundColor: 'var(--bg-app)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', fontSize: '0.85rem', lineHeight: '1.6', color: 'var(--text-main)', maxHeight: '320px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                  {viewingJob.description}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', borderTop: '1px solid var(--border-color)', paddingTop: '0.85rem' }}>
+              <button className="btn btn-secondary" onClick={() => setViewingJob(null)}>
+                Close
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  const jobToApply = viewingJob;
+                  setViewingJob(null);
+                  onApplyForJob(jobToApply);
+                }}
+              >
+                <Upload size={14} /> Apply Now <ArrowRight size={13} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

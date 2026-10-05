@@ -39,6 +39,35 @@ export function removeStudentApplicationsForJob(jobId: string): void {
   }
 }
 
+export function updateStudentApplicationScores(candidates: { candidate_id: string; rerank_score: number; rerank_rank: number; source_key?: string }[]): void {
+  try {
+    const apps = getStudentApplications();
+    let updated = false;
+    const newApps = apps.map(app => {
+      const match = candidates.find(c =>
+        c.candidate_id.includes(app.application_id) ||
+        (c.source_key && c.source_key === app.s3_key) ||
+        (app.application_id && c.candidate_id.includes(app.application_id.slice(0, 8)))
+      );
+      if (match) {
+        updated = true;
+        return {
+          ...app,
+          match_score: match.rerank_score,
+          rerank_rank: match.rerank_rank,
+          status: 'SCREENED'
+        };
+      }
+      return app;
+    });
+    if (updated) {
+      localStorage.setItem(STUDENT_APPS_KEY, JSON.stringify(newApps));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export interface SavedCandidateResume {
   fileName: string;
   fileSize: number;

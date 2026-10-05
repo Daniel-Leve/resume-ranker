@@ -105,6 +105,9 @@ export interface StudentApplicationRecord {
   job_title: string;
   candidate_name: string;
   candidate_email?: string;
+  recruiter_email?: string;
+  recruiter_name?: string;
+  department?: string;
   s3_key: string;
   applied_at: string;
   status: 'SUBMITTED' | 'INDEXED' | 'SCREENED' | string;

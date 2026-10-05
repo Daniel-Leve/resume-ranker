@@ -109,6 +109,9 @@ export function CandidateUploaderModal({
         job_title: activeJob ? activeJob.title : 'General Application',
         candidate_name: finalName,
         candidate_email: session?.email,
+        recruiter_email: activeJob?.recruiter_email || 'recruiter@company.com',
+        recruiter_name: activeJob?.recruiter_name || 'Hiring Team',
+        department: activeJob?.department || 'Engineering',
         s3_key: appData.s3_key,
         applied_at: new Date().toISOString(),
         status: 'SUBMITTED'

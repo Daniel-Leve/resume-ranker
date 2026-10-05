@@ -11,7 +11,7 @@ export function getInitialTheme(): ThemeMode {
   } catch {
     // Ignore storage errors
   }
-  return 'dark';
+  return 'light';
 }
 
 export function applyTheme(theme: ThemeMode): void {
