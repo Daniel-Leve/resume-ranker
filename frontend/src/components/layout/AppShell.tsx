@@ -1,19 +1,22 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, Briefcase, PlaySquare, Settings, Server, UserCheck, GraduationCap, FileText, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, Briefcase, PlaySquare, Settings, Server, UserCheck, GraduationCap, FileText, Sun, Moon, LogOut, User } from 'lucide-react';
 import { isMockMode, getApiBaseUrl } from '../../api/client';
 import { UserRole } from '../../types';
 import { getInitialTheme, applyTheme, ThemeMode } from '../../utils/theme';
+import { UserSession } from '../../utils/authStore';
 
 interface AppShellProps {
   children: React.ReactNode;
   activeNav: string;
   userRole: UserRole;
+  session?: UserSession | null;
   onNavigate: (page: string) => void;
   onToggleRole: (role: UserRole) => void;
   onOpenConfig: () => void;
+  onLogout?: () => void;
 }
 
-export function AppShell({ children, activeNav, userRole, onNavigate, onToggleRole, onOpenConfig }: AppShellProps) {
+export function AppShell({ children, activeNav, userRole, session, onNavigate, onToggleRole, onOpenConfig, onLogout }: AppShellProps) {
   const mockEnabled = isMockMode();
   const apiBaseUrl = getApiBaseUrl();
   const [currentTheme, setCurrentTheme] = useState<ThemeMode>(getInitialTheme());
@@ -23,6 +26,8 @@ export function AppShell({ children, activeNav, userRole, onNavigate, onToggleRo
     setCurrentTheme(nextTheme);
     applyTheme(nextTheme);
   };
+
+  const userName = session?.name || (userRole === 'recruiter' ? 'Acme Recruiter' : 'Student Applicant');
 
   return (
     <div className="app-shell">
@@ -90,16 +95,24 @@ export function AppShell({ children, activeNav, userRole, onNavigate, onToggleRo
                 <FileText size={18} />
                 <span>My Applications</span>
               </button>
+
+              <button
+                className={`nav-item ${activeNav === 'settings' ? 'active' : ''}`}
+                onClick={() => onNavigate('settings')}
+              >
+                <Settings size={18} />
+                <span>Profile & Saved Resume</span>
+              </button>
             </>
           )}
         </nav>
 
         <div className="sidebar-footer">
           <div style={{ fontWeight: 600, color: 'var(--text-muted)' }}>
-            {userRole === 'recruiter' ? 'Acme Enterprise Corp' : 'Student Applicant Profile'}
+            {userName}
           </div>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>
-            {userRole === 'recruiter' ? 'Tenant: tenant-acme-corp' : 'Session: Persistent Local'}
+            {userRole === 'recruiter' ? 'Tenant: tenant-acme-corp' : 'Session: Candidate Account'}
           </div>
         </div>
       </aside>
@@ -128,30 +141,45 @@ export function AppShell({ children, activeNav, userRole, onNavigate, onToggleRo
               {currentTheme === 'dark' ? <Sun size={16} style={{ color: '#f59e0b' }} /> : <Moon size={16} style={{ color: 'var(--accent-primary)' }} />}
             </button>
 
-            {/* Role Switcher Toggle */}
-            <div style={{ display: 'inline-flex', backgroundColor: 'var(--bg-app)', padding: '0.2rem', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-              <button
-                className={`btn btn-sm ${userRole === 'recruiter' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '0.25rem 0.65rem', fontSize: '0.78rem' }}
-                onClick={() => onToggleRole('recruiter')}
-              >
-                <Briefcase size={13} /> Recruiter
-              </button>
-              <button
-                className={`btn btn-sm ${userRole === 'candidate' ? 'btn-primary' : 'btn-secondary'}`}
-                style={{ padding: '0.25rem 0.65rem', fontSize: '0.78rem' }}
-                onClick={() => onToggleRole('candidate')}
-              >
-                <GraduationCap size={13} /> Candidate / Student
-              </button>
+            {/* User Session Profile Pill */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                backgroundColor: 'var(--bg-app)',
+                padding: '0.35rem 0.75rem',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--text-main)'
+              }}
+            >
+              <User size={14} style={{ color: 'var(--accent-primary)' }} />
+              {userName}
+              <span className={`status-badge ${userRole === 'recruiter' ? 'badge-emerald' : 'badge-indigo'}`} style={{ fontSize: '0.68rem', padding: '0.1rem 0.4rem', marginLeft: '0.2rem' }}>
+                {userRole === 'recruiter' ? 'Recruiter' : 'Candidate'}
+              </span>
             </div>
+
+            {/* Logout / Switch Account Button */}
+            {onLogout && (
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={onLogout}
+                title="Switch Account / Logout"
+              >
+                <LogOut size={14} /> Switch Account
+              </button>
+            )}
 
             <div
               className="status-badge badge-emerald"
               title={`API Base URL: ${apiBaseUrl}`}
             >
               <Server size={12} />
-              Live AWS Cloud Connected
+              AWS Cloud Connected
             </div>
           </div>
         </header>

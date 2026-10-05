@@ -7,10 +7,12 @@ interface CreateJobModalProps {
   isOpen: boolean;
   onClose: () => void;
   tenantId: string;
+  recruiterEmail?: string;
+  recruiterName?: string;
   onJobCreated: (job: Job) => void;
 }
 
-export function CreateJobModal({ isOpen, onClose, tenantId, onJobCreated }: CreateJobModalProps) {
+export function CreateJobModal({ isOpen, onClose, tenantId, recruiterEmail, recruiterName, onJobCreated }: CreateJobModalProps) {
   const [title, setTitle] = useState('');
   const [department, setDepartment] = useState('Engineering');
   const [location, setLocation] = useState('Remote / Hybrid');
@@ -34,7 +36,9 @@ export function CreateJobModal({ isOpen, onClose, tenantId, onJobCreated }: Crea
         title: title.trim(),
         description: description.trim(),
         department: department.trim(),
-        location: location.trim()
+        location: location.trim(),
+        recruiter_email: recruiterEmail,
+        recruiter_name: recruiterName
       });
       setLoading(false);
       setTitle('');

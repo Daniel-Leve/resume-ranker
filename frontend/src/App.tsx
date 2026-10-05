@@ -5,6 +5,7 @@ import { JobsPage } from './pages/JobsPage';
 import { JobWorkspacePage } from './pages/JobWorkspacePage';
 import { ScreeningRunsPage } from './pages/ScreeningRunsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { LoginPage } from './components/auth/LoginPage';
 
 import { CreateJobModal } from './features/jobs/CreateJobModal';
 import { CandidateUploaderModal } from './features/candidates/CandidateUploaderModal';
@@ -16,11 +17,15 @@ import { triggerScreening, getScreeningResults } from './api/screening';
 import { CandidatePortalPage } from './pages/CandidatePortalPage';
 import { Job, ScreeningRun, Application, UserRole } from './types';
 import { removeStudentApplication, removeStudentApplicationsForJob } from './utils/studentStore';
+import { UserSession, getStoredSession, clearSession } from './utils/authStore';
 
 import { registerCandidateName } from './utils/formatters';
 
 export function App() {
+  const [userSession, setUserSession] = useState<UserSession | null>(() => getStoredSession());
   const [userRole, setUserRole] = useState<UserRole>(() => {
+    const session = getStoredSession();
+    if (session?.role) return session.role;
     return (localStorage.getItem('resume_ranker_user_role') as UserRole) || 'recruiter';
   });
   const [activeNav, setActiveNav] = useState<string>(() => {
@@ -28,6 +33,7 @@ export function App() {
     const defaultNav = savedRole === 'candidate' ? 'candidate-portal' : 'overview';
     return localStorage.getItem('resume_ranker_active_nav') || defaultNav;
   });
+
   const [jobs, setJobs] = useState<Job[]>([]);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const [screeningRun, setScreeningRun] = useState<ScreeningRun | null>(null);
@@ -38,6 +44,21 @@ export function App() {
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+  const handleLogin = (session: UserSession) => {
+    setUserSession(session);
+    setUserRole(session.role);
+    if (session.role === 'candidate') {
+      handleNavigate('candidate-portal');
+    } else {
+      handleNavigate('overview');
+    }
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    setUserSession(null);
+  };
 
   const handleDeleteJob = (jobId: string) => {
     deleteJobPosting(jobId);
@@ -181,30 +202,66 @@ export function App() {
     handleNavigate('job-workspace');
   };
 
+  // Filter jobs by logged in recruiter session
+  const visibleJobs = userRole === 'recruiter' && userSession?.email
+    ? jobs.filter(j => j.recruiter_email
+        ? j.recruiter_email.toLowerCase() === userSession.email.toLowerCase()
+        : userSession.email.toLowerCase() === 'recruiter@acme.com'
+      )
+    : jobs;
+
+  useEffect(() => {
+    if (userRole === 'recruiter') {
+      if (visibleJobs.length > 0) {
+        if (!activeJob || !visibleJobs.some(j => j.job_id === activeJob.job_id)) {
+          setActiveJob(visibleJobs[0]);
+        }
+      } else {
+        setActiveJob(null);
+      }
+    }
+  }, [userSession?.email, userRole, jobs]);
+
   const tenant = getDefaultTenant();
+
+  if (!userSession || !userSession.isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
 
   return (
     <AppShell
       activeNav={activeNav}
       userRole={userRole}
+      session={userSession}
       onNavigate={(page) => handleNavigate(page)}
       onToggleRole={handleToggleRole}
       onOpenConfig={() => setIsConfigOpen(true)}
+      onLogout={handleLogout}
     >
       {userRole === 'candidate' ? (
-        <CandidatePortalPage
-          jobs={jobs}
-          screeningRun={screeningRun}
-          onApplyForJob={(job) => {
-            setActiveJob(job);
-            setIsUploadOpen(true);
-          }}
-        />
+        activeNav === 'settings' ? (
+          <SettingsPage
+            onOpenConfig={() => setIsConfigOpen(true)}
+            session={userSession}
+          />
+        ) : (
+          <CandidatePortalPage
+            jobs={jobs}
+            screeningRun={screeningRun}
+            session={userSession}
+            activeNav={activeNav}
+            onNavigate={(p) => handleNavigate(p)}
+            onApplyForJob={(job) => {
+              setActiveJob(job);
+              setIsUploadOpen(true);
+            }}
+          />
+        )
       ) : (
         <>
           {activeNav === 'overview' && (
             <OverviewPage
-              jobs={jobs}
+              jobs={visibleJobs}
               screeningRun={screeningRun}
               onOpenJobWorkspace={handleOpenWorkspace}
               onOpenCreateJob={() => setIsCreateJobOpen(true)}
@@ -214,7 +271,7 @@ export function App() {
 
           {activeNav === 'jobs' && (
             <JobsPage
-              jobs={jobs}
+              jobs={visibleJobs}
               onOpenJobWorkspace={handleOpenWorkspace}
               onOpenCreateJob={() => setIsCreateJobOpen(true)}
               onDeleteJob={handleDeleteJob}
@@ -238,7 +295,7 @@ export function App() {
           {activeNav === 'screening-runs' && (
             <ScreeningRunsPage
               screeningRun={screeningRun}
-              jobs={jobs}
+              jobs={visibleJobs}
               onOpenJobWorkspace={handleOpenWorkspace}
             />
           )}
@@ -246,6 +303,7 @@ export function App() {
           {activeNav === 'settings' && (
             <SettingsPage
               onOpenConfig={() => setIsConfigOpen(true)}
+              session={userSession}
             />
           )}
         </>
@@ -256,6 +314,8 @@ export function App() {
         isOpen={isCreateJobOpen}
         onClose={() => setIsCreateJobOpen(false)}
         tenantId={tenant.tenant_id}
+        recruiterEmail={userSession?.email}
+        recruiterName={userSession?.name}
         onJobCreated={handleJobCreated}
       />
 
@@ -263,6 +323,7 @@ export function App() {
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
         activeJob={activeJob}
+        session={userSession}
         onUploadSuccess={fetchResults}
       />
 

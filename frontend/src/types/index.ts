@@ -15,6 +15,8 @@ export interface Job {
   application_count?: number;
   department?: string;
   location?: string;
+  recruiter_email?: string;
+  recruiter_name?: string;
 }
 
 export interface Application {
@@ -91,6 +93,8 @@ export interface CreateJobInput {
   description: string;
   department?: string;
   location?: string;
+  recruiter_email?: string;
+  recruiter_name?: string;
 }
 
 export type UserRole = 'recruiter' | 'candidate';
@@ -100,6 +104,10 @@ export interface StudentApplicationRecord {
   job_id: string;
   job_title: string;
   candidate_name: string;
+  candidate_email?: string;
+  recruiter_email?: string;
+  recruiter_name?: string;
+  department?: string;
   s3_key: string;
   applied_at: string;
   status: 'SUBMITTED' | 'INDEXED' | 'SCREENED' | string;
