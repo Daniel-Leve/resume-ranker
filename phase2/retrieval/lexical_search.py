@@ -43,6 +43,8 @@ def lexical_search(
     collection: Collection,
     query_text: str,
     top_k: Optional[int] = None,
+    tenant_id: Optional[str] = None,
+    job_id: Optional[str] = None,
 ) -> List[ChunkHit]:
     """
     Run BM25 lexical retrieval using MongoDB Atlas Search.
@@ -51,6 +53,8 @@ def lexical_search(
         collection: MongoDB collection containing candidate chunks.
         query_text: Normalised job description text (plain string, not embedded).
         top_k:      Max chunk hits to return (defaults to ``config.LEXICAL_TOP_K``).
+        tenant_id:  When provided, restricts results to this tenant (SaaS mode).
+        job_id:     When provided, restricts results to this job (SaaS mode).
 
     Returns:
         Ordered list of ChunkHit, best BM25 score first.
@@ -60,8 +64,32 @@ def lexical_search(
     """
     k = top_k if top_k is not None else config.LEXICAL_TOP_K
 
-    pipeline = [
-        {
+    # Build the $search stage.
+    # In SaaS mode we wrap the text query in a compound/must clause and add
+    # equals filters for tenant_id and job_id so results are strictly scoped.
+    if tenant_id or job_id:
+        must_clauses = [{"text": {"query": query_text, "path": "text"}}]
+        filter_clauses = []
+        if tenant_id:
+            filter_clauses.append({"equals": {"path": "tenant_id", "value": tenant_id}})
+        if job_id:
+            filter_clauses.append({"equals": {"path": "job_id", "value": job_id}})
+
+        search_stage: dict = {
+            "$search": {
+                "index": config.TEXT_INDEX_NAME,
+                "compound": {
+                    "must": must_clauses,
+                    "filter": filter_clauses,
+                },
+            }
+        }
+        logger.debug(
+            "Lexical search scoped to tenant=%s  job=%s", tenant_id, job_id
+        )
+    else:
+        # Legacy / single-tenant mode — no tenant filter applied.
+        search_stage = {
             "$search": {
                 "index": config.TEXT_INDEX_NAME,
                 "text": {
@@ -69,7 +97,10 @@ def lexical_search(
                     "path": "text",
                 },
             }
-        },
+        }
+
+    pipeline = [
+        search_stage,
         {
             # Materialise the Atlas Search score for downstream logging/debug.
             "$addFields": {"_lex_score": {"$meta": "searchScore"}}

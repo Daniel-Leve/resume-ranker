@@ -1,0 +1,253 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Description: >
+  AI-Powered Resume Screening — SaaS Infrastructure
+  Serverless multi-tenant API + async processing workers.
+  All resources are pay-per-use to stay within $100 AWS credit budget.
+
+# ─── Parameters ───────────────────────────────────────────────────────────────
+Parameters:
+  StageName:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+    Description: Deployment stage name.
+
+  MongoDbUri:
+    Type: String
+    NoEcho: true
+    Description: MongoDB Atlas connection string (stored in SSM or passed at deploy time).
+
+  VoyageApiKey:
+    Type: String
+    NoEcho: true
+    Description: Voyage AI API key.
+
+  ResumeBucketName:
+    Type: String
+    Default: ai-resume-screening-dev-761595200930
+    Description: >
+      EXISTING Phase 1 S3 bucket. No new bucket is created.
+      Phase 1 Lambda and SNS continue to operate unchanged.
+
+# ─── Globals ──────────────────────────────────────────────────────────────────
+Globals:
+  Function:
+    Runtime: python3.13
+    MemorySize: 512
+    Timeout: 30
+    Environment:
+      Variables:
+        MONGODB_URI: !Ref MongoDbUri
+        MONGODB_DATABASE: resume_screening
+        MONGODB_COLLECTION: candidate_chunks
+        VOYAGE_API_KEY: !Ref VoyageApiKey
+        VOYAGE_MODEL: voyage-4-large
+        VOYAGE_EMBEDDING_DIMENSIONS: "1024"
+        VOYAGE_RERANK_MODEL: rerank-2.5
+        S3_BUCKET_NAME: !Ref ResumeBucketName
+        STAGE: !Ref StageName
+
+# ─── Resources ────────────────────────────────────────────────────────────────
+Resources:
+
+  # ── API Gateway ─────────────────────────────────────────────────────────────
+  ResumeScreeningApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "resume-screening-api-${StageName}"
+      StageName: !Ref StageName
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+
+  # ── SQS Queues ──────────────────────────────────────────────────────────────
+  # Queue 1: triggers Phase 2 Indexing when a new extracted.json lands in S3
+  IndexingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "resume-indexing-${StageName}"
+      VisibilityTimeout: 360       # 6× the Lambda timeout for safe retry
+      MessageRetentionPeriod: 86400
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt IndexingDLQ.Arn
+        maxReceiveCount: 3
+
+  IndexingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "resume-indexing-dlq-${StageName}"
+      MessageRetentionPeriod: 604800  # 7 days
+
+  # Queue 2: triggered by HR clicking "Screen Candidates" — runs Phase 2+3
+  ScreeningQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "resume-screening-${StageName}"
+      VisibilityTimeout: 720       # Phase 2 + Phase 3 may take a few minutes
+      MessageRetentionPeriod: 86400
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ScreeningDLQ.Arn
+        maxReceiveCount: 2
+
+  ScreeningDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub "resume-screening-dlq-${StageName}"
+      MessageRetentionPeriod: 604800
+
+  # ── S3 → SQS event bridge policy ────────────────────────────────────────────
+  # Allows S3 to publish ObjectCreated events to the IndexingQueue
+  IndexingQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref IndexingQueue
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt IndexingQueue.Arn
+            Condition:
+              ArnLike:
+                aws:SourceArn: !Sub "arn:aws:s3:::${ResumeBucketName}"
+
+  # ── API Handler Lambdas ──────────────────────────────────────────────────────
+
+  # Handles: POST /tenants, POST /tenants/{id}/jobs, POST /jobs/{id}/applications
+  # Returns presigned S3 upload URL for resume PDFs
+  ApplicationApiHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "resume-api-handler-${StageName}"
+      CodeUri: .
+      Handler: api.handlers.application_handler.lambda_handler
+      Description: REST API handler for job and application management.
+      Policies:
+        - AmazonS3FullAccess           # for presigned URL generation
+        - AmazonDynamoDBReadOnlyAccess # reserved for future job-state table
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ScreeningQueue.QueueName
+      Environment:
+        Variables:
+          SCREENING_QUEUE_URL: !Ref ScreeningQueue
+      Events:
+        PostTenants:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /tenants
+            Method: POST
+        PostJobs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /tenants/{tenant_id}/jobs
+            Method: POST
+        GetJob:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /tenants/{tenant_id}/jobs/{job_id}
+            Method: GET
+        PostApplication:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/applications
+            Method: POST
+        PostScreening:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/screening
+            Method: POST
+        GetScreeningResults:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/screening-results
+            Method: GET
+
+  # ── Worker Lambdas ───────────────────────────────────────────────────────────
+
+  # Phase 2 Indexing Worker — triggered by SQS when extracted.json is ready
+  IndexingWorker:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "resume-indexing-worker-${StageName}"
+      CodeUri: .
+      Handler: api.workers.indexing_worker.lambda_handler
+      Description: >
+        Wraps phase2.index_resumes logic. Triggered by SQS when a new
+        extracted.json lands in S3. Indexes the resume into MongoDB Atlas.
+      Timeout: 300          # 5 min — embedding via Voyage may take time
+      MemorySize: 1024
+      Policies:
+        - AmazonS3ReadOnlyAccess
+        - SQSPollerPolicy:
+            QueueName: !GetAtt IndexingQueue.QueueName
+      Environment:
+        Variables:
+          LEXICAL_TOP_K: "15"
+          VECTOR_TOP_K: "15"
+          FINAL_TOP_K: "15"
+          RRF_K: "60"
+          MAX_CHUNK_CHARS: "1200"
+      Events:
+        IndexingQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt IndexingQueue.Arn
+            BatchSize: 1            # Process one resume at a time for reliability
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  # Phase 2+3 Screening Worker — triggered by SQS when HR starts screening
+  ScreeningWorker:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "resume-screening-worker-${StageName}"
+      CodeUri: .
+      Handler: api.workers.screening_worker.lambda_handler
+      Description: >
+        Wraps phase2.search (hybrid retrieval) + phase3.rerank.
+        Triggered by SQS when HR clicks "Screen Candidates".
+        Stores results in MongoDB and S3 for the API to serve.
+      Timeout: 600          # 10 min — reranking 100 candidates takes time
+      MemorySize: 1024
+      Policies:
+        - AmazonS3FullAccess        # for writing output JSONs to S3
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ScreeningQueue.QueueName
+      Environment:
+        Variables:
+          RERANK_TOP_K: "-1"
+          RERANK_MAX_DOCUMENT_CHARS: "30000"
+          VOYAGE_RERANK_MODEL: "rerank-2.5"
+      Events:
+        ScreeningQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ScreeningQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+# ─── Outputs ──────────────────────────────────────────────────────────────────
+Outputs:
+  ApiEndpoint:
+    Description: Base URL for the Resume Screening REST API
+    Value: !Sub "https://${ResumeScreeningApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
+
+  IndexingQueueUrl:
+    Description: SQS URL for Phase 2 Indexing Queue
+    Value: !Ref IndexingQueue
+
+  ScreeningQueueUrl:
+    Description: SQS URL for Phase 2+3 Screening Queue
+    Value: !Ref ScreeningQueue

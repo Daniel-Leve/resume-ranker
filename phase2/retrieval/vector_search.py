@@ -36,6 +36,8 @@ def vector_search(
     collection: Collection,
     query_embedding: List[float],
     top_k: Optional[int] = None,
+    tenant_id: Optional[str] = None,
+    job_id: Optional[str] = None,
 ) -> List[ChunkHit]:
     """
     Run semantic retrieval using MongoDB Atlas Vector Search.
@@ -48,6 +50,8 @@ def vector_search(
         collection:      MongoDB collection containing candidate chunks.
         query_embedding: 1024-float job-description query vector.
         top_k:           Max chunk hits to return (defaults to ``config.VECTOR_TOP_K``).
+        tenant_id:       When provided, restricts results to this tenant (SaaS mode).
+        job_id:          When provided, restricts results to this job (SaaS mode).
 
     Returns:
         Ordered list of ChunkHit, best cosine similarity first.
@@ -69,16 +73,32 @@ def vector_search(
     # Cap at 10 000 to avoid over-scanning a small free-tier collection.
     num_candidates = min(k * 10, 10_000)
 
+    # Build the $vectorSearch stage.
+    # In SaaS mode we add a pre-filter so the ANN search is strictly scoped
+    # to the correct tenant + job before similarity scoring.
+    vector_search_stage: dict = {
+        "$vectorSearch": {
+            "index": config.VECTOR_INDEX_NAME,
+            "path": "embedding",
+            "queryVector": query_embedding,
+            "numCandidates": num_candidates,
+            "limit": k,
+        }
+    }
+
+    if tenant_id or job_id:
+        pre_filter: dict = {}
+        if tenant_id:
+            pre_filter["tenant_id"] = {"$eq": tenant_id}
+        if job_id:
+            pre_filter["job_id"] = {"$eq": job_id}
+        vector_search_stage["$vectorSearch"]["filter"] = pre_filter
+        logger.debug(
+            "Vector search scoped to tenant=%s  job=%s", tenant_id, job_id
+        )
+
     pipeline = [
-        {
-            "$vectorSearch": {
-                "index": config.VECTOR_INDEX_NAME,
-                "path": "embedding",
-                "queryVector": query_embedding,
-                "numCandidates": num_candidates,
-                "limit": k,
-            }
-        },
+        vector_search_stage,
         {
             # Materialise the vector similarity score for downstream logging/debug.
             "$addFields": {"_vec_score": {"$meta": "vectorSearchScore"}}

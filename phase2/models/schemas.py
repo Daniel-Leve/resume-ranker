@@ -21,6 +21,15 @@ class CandidateChunk:
     Each document represents a single meaningful section chunk of a resume.
     The `embedding` field is the 1024-dimensional Voyage AI vector.
     The `content_hash` is used for idempotent re-indexing.
+
+    Multi-tenancy fields (SaaS mode):
+        tenant_id      — the company/organisation owning this job posting.
+        job_id         — the specific job this candidate applied to.
+        application_id — the unique application linking the candidate to this job.
+
+    These fields are None in legacy (single-tenant CLI prototype) mode and
+    are actively populated in SaaS mode. Every retrieval query MUST filter
+    by tenant_id + job_id to prevent cross-tenant data leakage.
     """
     candidate_id: str           # e.g. "john-doe"  (derived from PDF filename)
     chunk_id: str               # e.g. "john-doe_experience_00"  (globally unique)
@@ -34,9 +43,14 @@ class CandidateChunk:
     content_hash: str           # SHA-256 of the full resume text (for idempotency)
     metadata: Dict[str, Any] = field(default_factory=dict)  # page_start, page_end, etc.
 
+    # ── Multi-tenancy fields (None in legacy mode, populated in SaaS mode) ──────
+    tenant_id: Optional[str] = None
+    job_id: Optional[str] = None
+    application_id: Optional[str] = None
+
     def to_mongo_doc(self) -> dict:
         """Serialize to a MongoDB-ready document dict. Uses chunk_id as _id."""
-        return {
+        doc = {
             "_id": self.chunk_id,
             "candidate_id": self.candidate_id,
             "chunk_id": self.chunk_id,
@@ -50,6 +64,16 @@ class CandidateChunk:
             "content_hash": self.content_hash,
             "metadata": self.metadata,
         }
+        # Only write multi-tenancy fields when they are populated so that
+        # legacy documents remain unchanged and legacy queries still work.
+        if self.tenant_id is not None:
+            doc["tenant_id"] = self.tenant_id
+        if self.job_id is not None:
+            doc["job_id"] = self.job_id
+        if self.application_id is not None:
+            doc["application_id"] = self.application_id
+        return doc
+
 
 
 # ─── Retrieval ─────────────────────────────────────────────────────────────────

@@ -1,0 +1,42 @@
+=== FINAL SAAS TEST WALKTHROUGH ===
+
+Since your Tenant and Job are already created in MongoDB, we will start directly from registering the candidate to get the new upload URL.
+
+Copy and paste these blocks into your PowerShell one by one:
+
+--- STEP 1: GENERATE NEW UPLOAD URL ---
+Run this command to register the candidate and get the new URL (notice it will now hand out an "incoming/" URL under the hood):
+
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/619b93c8-5eac-42b7-aa9d-417a95a9f550/applications" `
+  -Method POST `
+  -Headers @{"Content-Type"="application/json"} `
+  -Body '{"candidate_name": "Daniel Leve"}'
+
+(Copy the long `upload_url` from the output)
+
+
+--- STEP 2: UPLOAD THE RESUME SAFELY ---
+Paste your new long URL between the quotes below to clean it of any hidden newlines, and upload the PDF:
+
+$raw_url = "PASTE_YOUR_NEW_LONG_UPLOAD_URL_HERE"
+$clean_url = $raw_url -replace "\s+", ""
+Invoke-RestMethod -Uri $clean_url -Method PUT -InFile "D:\DANIEL RESUMES\DANIEL_LEVE_UPDATED_7_15.pdf" -ContentType "application/pdf"
+
+
+--- STEP 3: WAIT FOR INDEXING ---
+Wait approximately 60 to 90 seconds. 
+What's happening in the background: S3 triggers Textract -> Textract writes JSON -> S3 triggers our IndexingWorker -> IndexingWorker chunks the text, embeds it using Voyage AI, and stores it in MongoDB.
+
+
+--- STEP 4: TRIGGER THE AI SCREENING ---
+Run this to rank the candidates for the job:
+
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/619b93c8-5eac-42b7-aa9d-417a95a9f550/screening" -Method POST
+
+
+--- STEP 5: VIEW THE RESULTS ---
+Poll this endpoint to see the final ranked candidates:
+
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/619b93c8-5eac-42b7-aa9d-417a95a9f550/screening-results" -Method GET
+
+(Run this a few times until the status changes from QUEUED/RUNNING to COMPLETED. You will see Daniel's resume ranked with the hybrid search and reranking scores!)
