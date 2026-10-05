@@ -3,6 +3,7 @@ import { X, Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-
 import { createApplication, uploadResumeToS3 } from '../../api/applications';
 import { Job } from '../../types';
 import { registerCandidateName } from '../../utils/formatters';
+import { saveStudentApplication } from '../../utils/studentStore';
 
 interface CandidateUploaderModalProps {
   isOpen: boolean;
@@ -58,9 +59,19 @@ export function CandidateUploaderModal({
       setStep('presigning');
       const appData = await createApplication(jobId, candidateName.trim());
 
-      // Register candidate name in local name registry
+      // Register candidate name in local name registry & student applications
       registerCandidateName(appData.application_id, candidateName.trim());
       if (appData.s3_key) registerCandidateName(appData.s3_key, candidateName.trim());
+
+      saveStudentApplication({
+        application_id: appData.application_id,
+        job_id: jobId,
+        job_title: activeJob ? activeJob.title : 'General Application',
+        candidate_name: candidateName.trim(),
+        s3_key: appData.s3_key,
+        applied_at: new Date().toISOString(),
+        status: 'SUBMITTED'
+      });
 
       // Step 2: Upload PDF directly to S3 via presigned URL
       setStep('uploading');

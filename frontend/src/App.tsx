@@ -13,13 +13,19 @@ import { ConfigModal } from './components/common/ConfigModal';
 import { listJobs, listApplications } from './api/jobs';
 import { getDefaultTenant } from './api/tenants';
 import { triggerScreening, getScreeningResults } from './api/screening';
-import { Job, ScreeningRun, Application } from './types';
+import { CandidatePortalPage } from './pages/CandidatePortalPage';
+import { Job, ScreeningRun, Application, UserRole } from './types';
 
 import { registerCandidateName } from './utils/formatters';
 
 export function App() {
+  const [userRole, setUserRole] = useState<UserRole>(() => {
+    return (localStorage.getItem('resume_ranker_user_role') as UserRole) || 'recruiter';
+  });
   const [activeNav, setActiveNav] = useState<string>(() => {
-    return localStorage.getItem('resume_ranker_active_nav') || 'overview';
+    const savedRole = localStorage.getItem('resume_ranker_user_role');
+    const defaultNav = savedRole === 'candidate' ? 'candidate-portal' : 'overview';
+    return localStorage.getItem('resume_ranker_active_nav') || defaultNav;
   });
   const [jobs, setJobs] = useState<Job[]>([]);
   const [activeJob, setActiveJob] = useState<Job | null>(null);
@@ -54,6 +60,17 @@ export function App() {
   const handleNavigate = (page: string) => {
     setActiveNav(page);
     localStorage.setItem('resume_ranker_active_nav', page);
+  };
+
+  // Role Toggle Switcher
+  const handleToggleRole = (role: UserRole) => {
+    setUserRole(role);
+    localStorage.setItem('resume_ranker_user_role', role);
+    if (role === 'candidate') {
+      handleNavigate('candidate-portal');
+    } else {
+      handleNavigate('overview');
+    }
   };
 
   // Poll / Fetch Screening Results when activeJob changes
@@ -134,51 +151,66 @@ export function App() {
   return (
     <AppShell
       activeNav={activeNav}
+      userRole={userRole}
       onNavigate={(page) => handleNavigate(page)}
+      onToggleRole={handleToggleRole}
       onOpenConfig={() => setIsConfigOpen(true)}
     >
-      {activeNav === 'overview' && (
-        <OverviewPage
+      {userRole === 'candidate' ? (
+        <CandidatePortalPage
           jobs={jobs}
           screeningRun={screeningRun}
-          onOpenJobWorkspace={handleOpenWorkspace}
-          onOpenCreateJob={() => setIsCreateJobOpen(true)}
-          onNavigate={(p) => handleNavigate(p)}
+          onApplyForJob={(job) => {
+            setActiveJob(job);
+            setIsUploadOpen(true);
+          }}
         />
-      )}
+      ) : (
+        <>
+          {activeNav === 'overview' && (
+            <OverviewPage
+              jobs={jobs}
+              screeningRun={screeningRun}
+              onOpenJobWorkspace={handleOpenWorkspace}
+              onOpenCreateJob={() => setIsCreateJobOpen(true)}
+              onNavigate={(p) => handleNavigate(p)}
+            />
+          )}
 
-      {activeNav === 'jobs' && (
-        <JobsPage
-          jobs={jobs}
-          onOpenJobWorkspace={handleOpenWorkspace}
-          onOpenCreateJob={() => setIsCreateJobOpen(true)}
-        />
-      )}
+          {activeNav === 'jobs' && (
+            <JobsPage
+              jobs={jobs}
+              onOpenJobWorkspace={handleOpenWorkspace}
+              onOpenCreateJob={() => setIsCreateJobOpen(true)}
+            />
+          )}
 
-      {activeNav === 'job-workspace' && activeJob && (
-        <JobWorkspacePage
-          job={activeJob}
-          screeningRun={screeningRun}
-          applications={applications}
-          onTriggerScreening={handleTriggerScreening}
-          onRefresh={fetchResults}
-          onOpenUpload={() => setIsUploadOpen(true)}
-          loading={loading}
-        />
-      )}
+          {activeNav === 'job-workspace' && activeJob && (
+            <JobWorkspacePage
+              job={activeJob}
+              screeningRun={screeningRun}
+              applications={applications}
+              onTriggerScreening={handleTriggerScreening}
+              onRefresh={fetchResults}
+              onOpenUpload={() => setIsUploadOpen(true)}
+              loading={loading}
+            />
+          )}
 
-      {activeNav === 'screening-runs' && (
-        <ScreeningRunsPage
-          screeningRun={screeningRun}
-          jobs={jobs}
-          onOpenJobWorkspace={handleOpenWorkspace}
-        />
-      )}
+          {activeNav === 'screening-runs' && (
+            <ScreeningRunsPage
+              screeningRun={screeningRun}
+              jobs={jobs}
+              onOpenJobWorkspace={handleOpenWorkspace}
+            />
+          )}
 
-      {activeNav === 'settings' && (
-        <SettingsPage
-          onOpenConfig={() => setIsConfigOpen(true)}
-        />
+          {activeNav === 'settings' && (
+            <SettingsPage
+              onOpenConfig={() => setIsConfigOpen(true)}
+            />
+          )}
+        </>
       )}
 
       {/* Modals */}

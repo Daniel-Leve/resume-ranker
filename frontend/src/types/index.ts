@@ -92,3 +92,17 @@ export interface CreateJobInput {
   department?: string;
   location?: string;
 }
+
+export type UserRole = 'recruiter' | 'candidate';
+
+export interface StudentApplicationRecord {
+  application_id: string;
+  job_id: string;
+  job_title: string;
+  candidate_name: string;
+  s3_key: string;
+  applied_at: string;
+  status: 'SUBMITTED' | 'INDEXED' | 'SCREENED' | string;
+  match_score?: number;
+  rerank_rank?: number;
+}
