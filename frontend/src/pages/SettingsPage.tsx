@@ -99,34 +99,29 @@ export function SettingsPage({ onOpenConfig }: SettingsPageProps) {
       <div className="card">
         <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Server size={18} style={{ color: 'var(--accent-primary)' }} />
-          API Gateway Connection
+          AWS Cloud REST API Connection
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem' }}>
           <div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Active Base URL</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Active Endpoint URL</div>
             <code style={{ fontSize: '0.85rem', color: 'var(--text-main)', display: 'block', marginTop: '0.2rem' }}>
               {currentUrl}
             </code>
           </div>
 
           <div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Execution Mode</div>
-            <div style={{ marginTop: '0.2rem' }}>
-              <span className={`status-badge ${mock ? 'badge-amber' : 'badge-emerald'}`}>
-                {mock ? 'Offline Mock Fixtures Enabled' : 'Live AWS SAM REST API Connected'}
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', fontWeight: 600 }}>Cloud Environment Status</div>
+            <div style={{ marginTop: '0.25rem' }}>
+              <span className="status-badge badge-emerald">
+                Live AWS SAM REST API & S3 Ingestion Connected
               </span>
             </div>
-          </div>
-
-          <div style={{ paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
-            <button className="btn btn-primary" onClick={onOpenConfig}>
-              Configure Endpoint / Toggle Mock Mode
-            </button>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Play, RotateCw, Upload, CheckCircle2, Layers, FileText, ChevronRight, ArrowUp, ArrowDown, Minus, Info } from 'lucide-react';
+import { Play, RotateCw, Upload, CheckCircle2, Layers, FileText, ChevronRight, ArrowUp, ArrowDown, Minus, Info, Trash2 } from 'lucide-react';
 import { Job, CandidateRanking, ScreeningRun, Application } from '../types';
 import { CandidateEvidenceDrawer } from '../features/candidates/CandidateEvidenceDrawer';
 import { ArchitectureExplainer } from '../features/screening/ArchitectureExplainer';
-import { formatCandidateName, formatCandidateId, formatS3Key } from '../utils/formatters';
+import { formatCandidateName, formatCandidateId, formatS3Key, getJobCandidateCount } from '../utils/formatters';
 
 interface JobWorkspacePageProps {
   job: Job;
@@ -13,6 +13,8 @@ interface JobWorkspacePageProps {
   onRefresh: () => void;
   onOpenUpload: () => void;
   loading: boolean;
+  onDeleteJob?: (jobId: string) => void;
+  onDeleteCandidate?: (candidateId: string) => void;
 }
 
 export function JobWorkspacePage({
@@ -22,13 +24,28 @@ export function JobWorkspacePage({
   onTriggerScreening,
   onRefresh,
   onOpenUpload,
-  loading
+  loading,
+  onDeleteJob,
+  onDeleteCandidate
 }: JobWorkspacePageProps) {
   const [activeTab, setActiveTab] = useState<'screening' | 'candidates' | 'details' | 'architecture'>('screening');
   const [selectedCandidate, setSelectedCandidate] = useState<CandidateRanking | null>(null);
 
   const candidates = screeningRun?.candidates || [];
   const runStatus = screeningRun?.status || 'IDLE';
+  const totalApplicants = Math.max(applications.length, candidates.length, getJobCandidateCount(job, screeningRun));
+
+  const handleDeletePosting = () => {
+    if (window.confirm(`Are you sure you want to delete job requisition "${job.title}"? This cannot be undone.`)) {
+      onDeleteJob?.(job.job_id);
+    }
+  };
+
+  const handleDeleteCandidateItem = (candidateId: string, name: string) => {
+    if (window.confirm(`Are you sure you want to remove candidate "${name}" from this job requisition?`)) {
+      onDeleteCandidate?.(candidateId);
+    }
+  };
 
   const renderRankChange = (change: number) => {
     if (change > 0) {
@@ -66,7 +83,7 @@ export function JobWorkspacePage({
             </div>
             <h1 style={{ fontSize: '1.4rem', fontWeight: 700 }}>{job.title}</h1>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-              Department: {job.department || 'Engineering'} &bull; Location: {job.location || 'Remote'} &bull; {job.application_count || candidates.length || applications.length || 0} Registered Applicants
+              Department: {job.department || 'Engineering'} &bull; Location: {job.location || 'Remote'} &bull; {totalApplicants} Registered Applicants
             </div>
           </div>
 
@@ -92,6 +109,17 @@ export function JobWorkspacePage({
               <Play size={14} />
               {runStatus.startsWith('RUNNING') ? 'AI Screening Active...' : 'Run AI Screening'}
             </button>
+
+            {onDeleteJob && (
+              <button
+                className="btn btn-secondary btn-icon"
+                style={{ color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                onClick={handleDeletePosting}
+                title="Delete Job Posting"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -109,7 +137,7 @@ export function JobWorkspacePage({
           className={`tab-btn ${activeTab === 'candidates' ? 'active' : ''}`}
           onClick={() => setActiveTab('candidates')}
         >
-          Registered Candidates ({applications.length || candidates.length || job.application_count || 0})
+          Registered Candidates ({totalApplicants})
         </button>
 
         <button
@@ -191,9 +219,21 @@ export function JobWorkspacePage({
                         </td>
                         <td>{renderRankChange(c.rank_change || 0)}</td>
                         <td>
-                          <button className="btn btn-secondary btn-sm" onClick={() => setSelectedCandidate(c)}>
-                            Inspect Evidence <ChevronRight size={14} />
-                          </button>
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setSelectedCandidate(c)}>
+                              Inspect Evidence <ChevronRight size={14} />
+                            </button>
+                            {onDeleteCandidate && (
+                              <button
+                                className="btn btn-secondary btn-sm btn-icon"
+                                style={{ color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                                onClick={() => handleDeleteCandidateItem(c.candidate_id, displayName)}
+                                title="Remove candidate resume"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -230,64 +270,95 @@ export function JobWorkspacePage({
                 <th>Status</th>
                 <th>S3 Resume Storage</th>
                 <th>Registered Date</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
               {applications.length > 0 ? (
-                applications.map((app, idx) => (
-                  <tr key={app.application_id}>
-                    <td>
-                      <div style={{ fontWeight: 700 }}>{formatCandidateName(app.candidate_name, app.application_id, idx)}</div>
-                    </td>
-                    <td>
-                      <code style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }} title={app.application_id}>
-                        {formatCandidateId(app.application_id)}
-                      </code>
-                    </td>
-                    <td>
-                      <span className={`status-badge ${app.status === 'INDEXED' ? 'badge-emerald' : 'badge-indigo'}`}>
-                        {app.status || 'PENDING_UPLOAD'}
-                      </span>
-                    </td>
-                    <td>
-                      <code style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }} title={app.s3_resume_key}>
-                        {formatS3Key(app.s3_resume_key)}
-                      </code>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                        {app.created_at ? new Date(app.created_at).toLocaleDateString() : 'Active'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                applications.map((app, idx) => {
+                  const displayName = formatCandidateName(app.candidate_name, app.application_id, idx);
+                  return (
+                    <tr key={app.application_id}>
+                      <td>
+                        <div style={{ fontWeight: 700 }}>{displayName}</div>
+                      </td>
+                      <td>
+                        <code style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }} title={app.application_id}>
+                          {formatCandidateId(app.application_id)}
+                        </code>
+                      </td>
+                      <td>
+                        <span className={`status-badge ${app.status === 'INDEXED' ? 'badge-emerald' : 'badge-indigo'}`}>
+                          {app.status || 'PENDING_UPLOAD'}
+                        </span>
+                      </td>
+                      <td>
+                        <code style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }} title={app.s3_resume_key}>
+                          {formatS3Key(app.s3_resume_key)}
+                        </code>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                          {app.created_at ? new Date(app.created_at).toLocaleDateString() : 'Active'}
+                        </span>
+                      </td>
+                      <td>
+                        {onDeleteCandidate && (
+                          <button
+                            className="btn btn-secondary btn-sm btn-icon"
+                            style={{ color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                            onClick={() => handleDeleteCandidateItem(app.application_id, displayName)}
+                            title="Remove candidate application"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : candidates.length > 0 ? (
-                candidates.map((c, idx) => (
-                  <tr key={c.candidate_id}>
-                    <td>
-                      <div style={{ fontWeight: 700 }}>{formatCandidateName(c.candidate_name, c.candidate_id, idx, c.document_chunks)}</div>
-                    </td>
-                    <td>
-                      <code style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }} title={c.candidate_id}>
-                        {formatCandidateId(c.candidate_id)}
-                      </code>
-                    </td>
-                    <td>
-                      <span className="status-badge badge-emerald">INDEXED</span>
-                    </td>
-                    <td>
-                      <code style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }} title={c.source_key}>
-                        {formatS3Key(c.source_key)}
-                      </code>
-                    </td>
-                    <td>
-                      <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Active</span>
-                    </td>
-                  </tr>
-                ))
+                candidates.map((c, idx) => {
+                  const displayName = formatCandidateName(c.candidate_name, c.candidate_id, idx, c.document_chunks);
+                  return (
+                    <tr key={c.candidate_id}>
+                      <td>
+                        <div style={{ fontWeight: 700 }}>{displayName}</div>
+                      </td>
+                      <td>
+                        <code style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }} title={c.candidate_id}>
+                          {formatCandidateId(c.candidate_id)}
+                        </code>
+                      </td>
+                      <td>
+                        <span className="status-badge badge-emerald">INDEXED</span>
+                      </td>
+                      <td>
+                        <code style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }} title={c.source_key}>
+                          {formatS3Key(c.source_key)}
+                        </code>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Active</span>
+                      </td>
+                      <td>
+                        {onDeleteCandidate && (
+                          <button
+                            className="btn btn-secondary btn-sm btn-icon"
+                            style={{ color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                            onClick={() => handleDeleteCandidateItem(c.candidate_id, displayName)}
+                            title="Remove candidate application"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '2.5rem' }}>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '2.5rem' }}>
                     <div className="empty-title">No candidates registered</div>
                     <div className="empty-desc">Click "Add Candidates" to register resume applications for this job.</div>
                   </td>

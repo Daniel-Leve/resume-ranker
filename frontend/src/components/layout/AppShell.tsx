@@ -147,19 +147,12 @@ export function AppShell({ children, activeNav, userRole, onNavigate, onToggleRo
             </div>
 
             <div
-              className={`status-badge ${mockEnabled ? 'badge-amber' : 'badge-emerald'}`}
-              style={{ cursor: 'pointer' }}
-              onClick={onOpenConfig}
-              title={`API: ${apiBaseUrl}`}
+              className="status-badge badge-emerald"
+              title={`API Base URL: ${apiBaseUrl}`}
             >
               <Server size={12} />
-              {mockEnabled ? 'Mock Mode' : 'Live AWS API'}
+              Live AWS Cloud Connected
             </div>
-
-            <button className="btn btn-secondary btn-sm" onClick={onOpenConfig}>
-              <Settings size={14} />
-              <span>API Gateway</span>
-            </button>
           </div>
         </header>
 

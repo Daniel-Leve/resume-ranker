@@ -10,11 +10,12 @@ import { CreateJobModal } from './features/jobs/CreateJobModal';
 import { CandidateUploaderModal } from './features/candidates/CandidateUploaderModal';
 import { ConfigModal } from './components/common/ConfigModal';
 
-import { listJobs, listApplications } from './api/jobs';
+import { listJobs, listApplications, deleteJobPosting, decrementJobApplicationCount } from './api/jobs';
 import { getDefaultTenant } from './api/tenants';
 import { triggerScreening, getScreeningResults } from './api/screening';
 import { CandidatePortalPage } from './pages/CandidatePortalPage';
 import { Job, ScreeningRun, Application, UserRole } from './types';
+import { removeStudentApplication, removeStudentApplicationsForJob } from './utils/studentStore';
 
 import { registerCandidateName } from './utils/formatters';
 
@@ -37,6 +38,34 @@ export function App() {
   const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+  const handleDeleteJob = (jobId: string) => {
+    deleteJobPosting(jobId);
+    removeStudentApplicationsForJob(jobId);
+    setJobs(prev => prev.filter(j => j.job_id !== jobId));
+    if (activeJob?.job_id === jobId) {
+      setActiveJob(null);
+      localStorage.removeItem('resume_ranker_active_job_id');
+      handleNavigate('jobs');
+    }
+  };
+
+  const handleDeleteCandidate = (candidateIdOrAppId: string) => {
+    removeStudentApplication(candidateIdOrAppId);
+    if (screeningRun) {
+      setScreeningRun({
+        ...screeningRun,
+        candidates: (screeningRun.candidates || []).filter(
+          c => c.candidate_id !== candidateIdOrAppId && c.source_key !== candidateIdOrAppId
+        ),
+        candidate_count: Math.max(0, (screeningRun.candidate_count || 1) - 1)
+      });
+    }
+    setApplications(prev => prev.filter(a => a.application_id !== candidateIdOrAppId));
+    if (activeJob) {
+      decrementJobApplicationCount(activeJob.job_id);
+    }
+  };
 
   // Load Initial Jobs & restore active job selection
   useEffect(() => {
@@ -73,12 +102,15 @@ export function App() {
     }
   };
 
-  // Poll / Fetch Screening Results when activeJob changes
+  // Poll / Fetch Screening Results and Applications when activeJob changes
   const fetchResults = async () => {
     if (!activeJob) return;
     setLoading(true);
     try {
-      const res = await getScreeningResults(activeJob.job_id);
+      const [res, apps] = await Promise.all([
+        getScreeningResults(activeJob.job_id),
+        listApplications(activeJob.job_id)
+      ]);
       if (res) {
         setScreeningRun(res);
         // Register candidate names returned from backend if present
@@ -90,6 +122,9 @@ export function App() {
             }
           });
         }
+      }
+      if (apps) {
+        setApplications(apps);
       }
     } catch (err) {
       console.warn("Failed to fetch workspace data", err);
@@ -182,6 +217,7 @@ export function App() {
               jobs={jobs}
               onOpenJobWorkspace={handleOpenWorkspace}
               onOpenCreateJob={() => setIsCreateJobOpen(true)}
+              onDeleteJob={handleDeleteJob}
             />
           )}
 
@@ -194,6 +230,8 @@ export function App() {
               onRefresh={fetchResults}
               onOpenUpload={() => setIsUploadOpen(true)}
               loading={loading}
+              onDeleteJob={handleDeleteJob}
+              onDeleteCandidate={handleDeleteCandidate}
             />
           )}
 

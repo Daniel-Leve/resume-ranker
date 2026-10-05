@@ -23,6 +23,23 @@ export function saveCreatedJob(job: Job): void {
   }
 }
 
+export function incrementJobApplicationCount(jobId: string): void {
+  try {
+    const createdJobs = getCreatedJobs();
+    const target = createdJobs.find(j => j.job_id === jobId);
+    if (target) {
+      target.application_count = (target.application_count || 0) + 1;
+      saveCreatedJob(target);
+    }
+    const mockTarget = MOCK_JOBS.find(j => j.job_id === jobId);
+    if (mockTarget) {
+      mockTarget.application_count = (mockTarget.application_count || 0) + 1;
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export async function createJob(tenantId: string, input: CreateJobInput): Promise<Job> {
   const jobPayload = {
     title: input.title,
@@ -74,8 +91,56 @@ export async function getJob(tenantId: string, jobId: string): Promise<Job> {
   return apiRequest<Job>(`/tenants/${tenantId}/jobs/${jobId}`);
 }
 
+const DELETED_JOBS_KEY = 'resume_ranker_deleted_job_ids';
+
+export function getDeletedJobIds(): string[] {
+  try {
+    const raw = localStorage.getItem(DELETED_JOBS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function deleteJobPosting(jobId: string): void {
+  try {
+    // 1. Remove from created jobs
+    const created = getCreatedJobs().filter(j => j.job_id !== jobId);
+    localStorage.setItem(CREATED_JOBS_KEY, JSON.stringify(created));
+
+    // 2. Add to deleted job IDs list
+    const deletedIds = getDeletedJobIds();
+    if (!deletedIds.includes(jobId)) {
+      deletedIds.push(jobId);
+      localStorage.setItem(DELETED_JOBS_KEY, JSON.stringify(deletedIds));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function decrementJobApplicationCount(jobId: string): void {
+  try {
+    const createdJobs = getCreatedJobs();
+    const target = createdJobs.find(j => j.job_id === jobId);
+    if (target) {
+      target.application_count = Math.max(0, (target.application_count || 0) - 1);
+      saveCreatedJob(target);
+    }
+    const mockTarget = MOCK_JOBS.find(j => j.job_id === jobId);
+    if (mockTarget) {
+      mockTarget.application_count = Math.max(0, (mockTarget.application_count || 0) - 1);
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export async function listJobs(tenantId: string = "tenant-acme-corp"): Promise<Job[]> {
   const createdJobs = getCreatedJobs();
+  const deletedIds = getDeletedJobIds();
+
+  const filterOutDeleted = (list: Job[]) => list.filter(j => !deletedIds.includes(j.job_id));
 
   if (isMockMode()) {
     const combined = [...createdJobs];
@@ -84,7 +149,7 @@ export async function listJobs(tenantId: string = "tenant-acme-corp"): Promise<J
         combined.push(mj);
       }
     }
-    return combined;
+    return filterOutDeleted(combined);
   }
 
   try {
@@ -96,7 +161,7 @@ export async function listJobs(tenantId: string = "tenant-acme-corp"): Promise<J
           combined.push(bj);
         }
       }
-      return combined;
+      return filterOutDeleted(combined);
     }
   } catch (err) {
     // If backend bulk list endpoint is absent, return persistent created jobs + seed jobs
@@ -108,7 +173,7 @@ export async function listJobs(tenantId: string = "tenant-acme-corp"): Promise<J
       combined.push(mj);
     }
   }
-  return combined;
+  return filterOutDeleted(combined);
 }
 
 export async function listApplications(jobId: string): Promise<Application[]> {

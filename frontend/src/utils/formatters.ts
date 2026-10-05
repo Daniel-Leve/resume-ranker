@@ -112,3 +112,31 @@ export function formatS3Key(key?: string): string {
   }
   return key.length > 28 ? `${key.slice(0, 28)}...` : key;
 }
+
+export function getJobCandidateCount(job?: { job_id: string; application_count?: number } | null, screeningRun?: any): number {
+  if (!job) return 0;
+  
+  // 1. Check student applications from local store
+  let studentAppsCount = 0;
+  try {
+    const raw = localStorage.getItem('resume_ranker_student_applications');
+    const apps = raw ? JSON.parse(raw) : [];
+    if (Array.isArray(apps)) {
+      studentAppsCount = apps.filter((a: any) => a.job_id === job.job_id).length;
+    }
+  } catch {
+    studentAppsCount = 0;
+  }
+
+  // 2. Check active screening run if matching
+  let screeningCount = 0;
+  if (screeningRun && screeningRun.job_id === job.job_id) {
+    screeningCount = screeningRun.candidate_count || screeningRun.candidates?.length || 0;
+  }
+
+  // 3. Base application count
+  const baseCount = job.application_count || 0;
+
+  return Math.max(baseCount, studentAppsCount, screeningCount);
+}
+

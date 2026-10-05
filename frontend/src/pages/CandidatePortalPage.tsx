@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Briefcase, FileText, Upload, CheckCircle2, Search, ArrowRight, UserCheck, Clock, Award, Layers } from 'lucide-react';
+import { Briefcase, FileText, Upload, CheckCircle2, Search, ArrowRight, UserCheck, Clock, Award, Layers, Trash2 } from 'lucide-react';
 import { Job, StudentApplicationRecord, ScreeningRun } from '../types';
-import { getStudentApplications } from '../utils/studentStore';
-import { formatCandidateId, formatS3Key } from '../utils/formatters';
+import { getStudentApplications, removeStudentApplication } from '../utils/studentStore';
+import { formatCandidateId, formatS3Key, getJobCandidateCount } from '../utils/formatters';
+import { decrementJobApplicationCount } from '../api/jobs';
 
 interface CandidatePortalPageProps {
   jobs: Job[];
@@ -19,6 +20,14 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob }: Candi
   useEffect(() => {
     setMyApps(getStudentApplications());
   }, []);
+
+  const handleRemoveApplication = (app: StudentApplicationRecord) => {
+    if (window.confirm(`Are you sure you want to withdraw your application for "${app.job_title}"?`)) {
+      removeStudentApplication(app.application_id);
+      decrementJobApplicationCount(app.job_id);
+      setMyApps(getStudentApplications());
+    }
+  };
 
   const filteredJobs = jobs.filter(j =>
     j.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -116,7 +125,7 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob }: Candi
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.85rem', borderTop: '1px solid var(--border-color)' }}>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>
-                    Posted: {new Date(job.created_at).toLocaleDateString()}
+                    Applicants: {getJobCandidateCount(job, screeningRun)} &bull; Posted: {new Date(job.created_at).toLocaleDateString()}
                   </span>
 
                   <button
@@ -164,23 +173,34 @@ export function CandidatePortalPage({ jobs, screeningRun, onApplyForJob }: Candi
                         </div>
                       </div>
 
-                      {score ? (
-                        <div style={{ textAlign: 'right', backgroundColor: 'var(--bg-app)', padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                          <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>AI Match Score</div>
-                          <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
-                            {score}%
-                          </div>
-                          {rank && (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                              Candidate Rank: <strong>#{rank}</strong>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        {score ? (
+                          <div style={{ textAlign: 'right', backgroundColor: 'var(--bg-app)', padding: '0.65rem 1rem', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>AI Match Score</div>
+                            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--accent-emerald)', fontFamily: 'var(--font-mono)' }}>
+                              {score}%
                             </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="status-badge badge-amber">
-                          <Clock size={12} /> Ingestion & Indexing Active
-                        </div>
-                      )}
+                            {rank && (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                Candidate Rank: <strong>#{rank}</strong>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="status-badge badge-amber">
+                            <Clock size={12} /> Ingestion & Indexing Active
+                          </div>
+                        )}
+
+                        <button
+                          className="btn btn-secondary btn-sm btn-icon"
+                          style={{ color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                          onClick={() => handleRemoveApplication(app)}
+                          title="Withdraw Application"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', fontSize: '0.8rem', backgroundColor: 'var(--bg-app)', padding: '0.75rem', borderRadius: '6px' }}>

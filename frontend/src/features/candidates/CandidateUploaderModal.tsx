@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, FileText, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { createApplication, uploadResumeToS3 } from '../../api/applications';
+import { incrementJobApplicationCount } from '../../api/jobs';
 import { Job } from '../../types';
 import { registerCandidateName } from '../../utils/formatters';
 import { saveStudentApplication } from '../../utils/studentStore';
@@ -72,6 +73,8 @@ export function CandidateUploaderModal({
         applied_at: new Date().toISOString(),
         status: 'SUBMITTED'
       });
+
+      incrementJobApplicationCount(jobId);
 
       // Step 2: Upload PDF directly to S3 via presigned URL
       setStep('uploading');

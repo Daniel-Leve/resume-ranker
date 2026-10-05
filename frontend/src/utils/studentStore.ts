@@ -20,3 +20,22 @@ export function saveStudentApplication(record: StudentApplicationRecord): void {
     // Ignore storage errors
   }
 }
+
+export function removeStudentApplication(applicationId: string): void {
+  try {
+    const updated = getStudentApplications().filter(a => a.application_id !== applicationId);
+    localStorage.setItem(STUDENT_APPS_KEY, JSON.stringify(updated));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+export function removeStudentApplicationsForJob(jobId: string): void {
+  try {
+    const updated = getStudentApplications().filter(a => a.job_id !== jobId);
+    localStorage.setItem(STUDENT_APPS_KEY, JSON.stringify(updated));
+  } catch {
+    // Ignore storage errors
+  }
+}
+

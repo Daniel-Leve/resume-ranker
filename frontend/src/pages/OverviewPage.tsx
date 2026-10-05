@@ -1,6 +1,7 @@
 import React from 'react';
 import { Briefcase, Users, PlaySquare, CheckCircle2, ArrowUpRight, Plus } from 'lucide-react';
 import { Job, ScreeningRun } from '../types';
+import { getJobCandidateCount } from '../utils/formatters';
 
 interface OverviewPageProps {
   jobs: Job[];
@@ -18,8 +19,8 @@ export function OverviewPage({
   onNavigate
 }: OverviewPageProps) {
   const activeJobsCount = jobs.filter(j => j.status === 'OPEN').length;
-  const totalApplicationsCount = jobs.reduce((acc, j) => acc + (j.application_count || 0), 0);
-  const candidatesCount = screeningRun?.candidates?.length || 3;
+  const totalApplicationsCount = jobs.reduce((acc, j) => acc + getJobCandidateCount(j, screeningRun), 0);
+  const candidatesCount = screeningRun?.candidates?.length || (jobs.some(j => getJobCandidateCount(j, screeningRun) > 0) ? 3 : 0);
 
   return (
     <div>
@@ -91,7 +92,7 @@ export function OverviewPage({
                     <td>{job.department || 'Engineering'}</td>
                     <td>
                       <span className="status-badge badge-indigo">
-                        {job.application_count || 0} candidates
+                        {getJobCandidateCount(job, screeningRun)} candidates
                       </span>
                     </td>
                     <td>

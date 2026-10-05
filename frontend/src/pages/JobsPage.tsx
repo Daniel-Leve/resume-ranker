@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Plus, Search, Filter, Briefcase, ArrowUpRight } from 'lucide-react';
+import { Plus, Search, Filter, Briefcase, ArrowUpRight, Trash2 } from 'lucide-react';
 import { Job } from '../types';
+import { getJobCandidateCount } from '../utils/formatters';
 
 interface JobsPageProps {
   jobs: Job[];
   onOpenJobWorkspace: (job: Job) => void;
   onOpenCreateJob: () => void;
+  onDeleteJob?: (jobId: string) => void;
 }
 
-export function JobsPage({ jobs, onOpenJobWorkspace, onOpenCreateJob }: JobsPageProps) {
+export function JobsPage({ jobs, onOpenJobWorkspace, onOpenCreateJob, onDeleteJob }: JobsPageProps) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
 
@@ -18,6 +20,13 @@ export function JobsPage({ jobs, onOpenJobWorkspace, onOpenCreateJob }: JobsPage
     const matchesStatus = statusFilter === 'ALL' || j.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const handleDelete = (e: React.MouseEvent, job: Job) => {
+    e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete job requisition "${job.title}"? This will also remove associated candidate applications.`)) {
+      onDeleteJob?.(job.job_id);
+    }
+  };
 
   return (
     <div>
@@ -87,7 +96,7 @@ export function JobsPage({ jobs, onOpenJobWorkspace, onOpenCreateJob }: JobsPage
                   <td>{job.location || 'Remote / Hybrid'}</td>
                   <td>
                     <span className="status-badge badge-indigo">
-                      {job.application_count || 0} candidates
+                      {getJobCandidateCount(job)} candidates
                     </span>
                   </td>
                   <td>
@@ -97,9 +106,21 @@ export function JobsPage({ jobs, onOpenJobWorkspace, onOpenCreateJob }: JobsPage
                   </td>
                   <td>{new Date(job.created_at).toLocaleDateString()}</td>
                   <td>
-                    <button className="btn btn-secondary btn-sm" onClick={() => onOpenJobWorkspace(job)}>
-                      Open Workspace <ArrowUpRight size={14} />
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => onOpenJobWorkspace(job)}>
+                        Open Workspace <ArrowUpRight size={14} />
+                      </button>
+                      {onDeleteJob && (
+                        <button
+                          className="btn btn-secondary btn-sm btn-icon"
+                          style={{ color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                          onClick={(e) => handleDelete(e, job)}
+                          title="Delete Job Requisition"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))
