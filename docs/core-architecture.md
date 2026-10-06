@@ -27,6 +27,7 @@ Here is what each AWS resource actually does:
     *   *Crucial Feature:* S3 is configured to act as an alarm system. Whenever a file is dropped in a specific folder, S3 fires an event to wake up the rest of the system.
 *   **Amazon Textract (The Reader):** AWS's built-in AI that opens PDFs and reads the text out of them.
 *   **Amazon SQS (The Waiting Room):** Simple Queue Service. AI processing takes time. Instead of making the API wait 3 minutes and timing out, we drop a "ticket" into an SQS Queue. SQS holds the ticket safely until a Worker Lambda is ready to process it.
+    **Amazon Simple Notification Service (SNS):** used to trigger services like lambda etc
 *   **AWS Lambda (The Brains):** Runs your Python code on demand. We have 4 distinct Lambdas:
     1.  `ApplicationApiHandler`: Answers the API Gateway. Creates DB records and generates secure S3 Upload URLs. Fast and lightweight.
     2.  `resume-start-textract` (Phase 1): Woken up by S3 when a PDF is uploaded. Sends the PDF to Textract.

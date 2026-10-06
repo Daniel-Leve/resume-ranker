@@ -1,5 +1,15 @@
-# Phase 1 architecture
+# Phase 1 Architecture — Asynchronous PDF Resume Text Extraction
 
-`incoming/*.pdf` in the private S3 bucket triggers `resume-start-textract`. The function validates the key and starts `StartDocumentTextDetection`, directing completion to the standard SNS topic. SNS invokes `resume-collect-textract`, which retrieves every result page, normalizes `LINE` blocks, and writes `extracted/<job-id>.json`. Textract failures become `failed/<job-id>.json`.
+> **Note:** For the comprehensive Phase 1 architecture guide, please refer to [`phase1-architecture.md`](file:///d:/ResumeProjCodex/docs/phase1-architecture.md).
 
-Only the `incoming/` prefix and `.pdf` suffix are wired to S3 events. Unsupported formats never invoke the start function.
+## Quick Overview
+
+Phase 1 takes an uploaded PDF resume, runs it through **Amazon Textract** OCR asynchronously, and outputs a clean JSON file containing normalized line text and layout blocks to `s3://<bucket>/extracted/<job-id>.json`.
+
+```
+[ Upload PDF ] ──> S3 incoming/ ──> Lambda (start) ──> Textract (OCR)
+                                                            │
+[ Phase 2 ] <── S3 extracted/ <── Lambda (collect) <── SNS (done)
+```
+
+See the full detailed guide with step-by-step component explanations, cost considerations, and error handling in [**docs/phase1-architecture.md**](file:///d:/ResumeProjCodex/docs/phase1-architecture.md).
