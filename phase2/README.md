@@ -140,6 +140,14 @@ copy .env.example .env
       "path": "embedding",
       "numDimensions": 1024,
       "similarity": "cosine"
+    },
+    {
+      "type": "filter",
+      "path": "tenant_id"
+    },
+    {
+      "type": "filter",
+      "path": "job_id"
     }
   ]
 }
@@ -168,6 +176,12 @@ copy .env.example .env
       },
       "section": {
         "type": "string"
+      },
+      "tenant_id": {
+        "type": "token"
+      },
+      "job_id": {
+        "type": "token"
       }
     }
   }

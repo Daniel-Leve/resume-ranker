@@ -39,6 +39,78 @@ class ChunkHit(NamedTuple):
     source_key: str
 
 
+def build_lexical_search_pipeline(
+    query_text: str,
+    k: int,
+    tenant_id: Optional[str] = None,
+    job_id: Optional[str] = None,
+) -> List[dict]:
+    """
+    Construct the MongoDB aggregation pipeline for Atlas Search ($search).
+    """
+    if tenant_id or job_id:
+        must_clauses = [{"text": {"query": query_text, "path": "text"}}]
+        filter_clauses = []
+        if tenant_id and tenant_id.strip():
+            filter_clauses.append({"equals": {"path": "tenant_id", "value": tenant_id.strip()}})
+        if job_id and job_id.strip():
+            filter_clauses.append({"equals": {"path": "job_id", "value": job_id.strip()}})
+
+        if filter_clauses:
+            search_stage: dict = {
+                "$search": {
+                    "index": config.TEXT_INDEX_NAME,
+                    "compound": {
+                        "must": must_clauses,
+                        "filter": filter_clauses,
+                    },
+                }
+            }
+            logger.debug(
+                "Lexical search scoped to tenant=%s  job=%s", tenant_id, job_id
+            )
+        else:
+            search_stage = {
+                "$search": {
+                    "index": config.TEXT_INDEX_NAME,
+                    "text": {
+                        "query": query_text,
+                        "path": "text",
+                    },
+                }
+            }
+    else:
+        # Legacy / single-tenant mode — no tenant filter applied.
+        search_stage = {
+            "$search": {
+                "index": config.TEXT_INDEX_NAME,
+                "text": {
+                    "query": query_text,
+                    "path": "text",
+                },
+            }
+        }
+
+    return [
+        search_stage,
+        {
+            # Materialise the Atlas Search score for downstream logging/debug.
+            "$addFields": {"_lex_score": {"$meta": "searchScore"}}
+        },
+        {"$limit": k},
+        {
+            "$project": {
+                "_id": 0,
+                "candidate_id": 1,
+                "chunk_id": 1,
+                "section": 1,
+                "source_key": 1,
+                "_lex_score": 1,
+            }
+        },
+    ]
+
+
 def lexical_search(
     collection: Collection,
     query_text: str,
@@ -64,59 +136,12 @@ def lexical_search(
     """
     k = top_k if top_k is not None else config.LEXICAL_TOP_K
 
-    # Build the $search stage.
-    # In SaaS mode we wrap the text query in a compound/must clause and add
-    # equals filters for tenant_id and job_id so results are strictly scoped.
-    if tenant_id or job_id:
-        must_clauses = [{"text": {"query": query_text, "path": "text"}}]
-        filter_clauses = []
-        if tenant_id:
-            filter_clauses.append({"equals": {"path": "tenant_id", "value": tenant_id}})
-        if job_id:
-            filter_clauses.append({"equals": {"path": "job_id", "value": job_id}})
-
-        search_stage: dict = {
-            "$search": {
-                "index": config.TEXT_INDEX_NAME,
-                "compound": {
-                    "must": must_clauses,
-                    "filter": filter_clauses,
-                },
-            }
-        }
-        logger.debug(
-            "Lexical search scoped to tenant=%s  job=%s", tenant_id, job_id
-        )
-    else:
-        # Legacy / single-tenant mode — no tenant filter applied.
-        search_stage = {
-            "$search": {
-                "index": config.TEXT_INDEX_NAME,
-                "text": {
-                    "query": query_text,
-                    "path": "text",
-                },
-            }
-        }
-
-    pipeline = [
-        search_stage,
-        {
-            # Materialise the Atlas Search score for downstream logging/debug.
-            "$addFields": {"_lex_score": {"$meta": "searchScore"}}
-        },
-        {"$limit": k},
-        {
-            "$project": {
-                "_id": 0,
-                "candidate_id": 1,
-                "chunk_id": 1,
-                "section": 1,
-                "source_key": 1,
-                "_lex_score": 1,
-            }
-        },
-    ]
+    pipeline = build_lexical_search_pipeline(
+        query_text=query_text,
+        k=k,
+        tenant_id=tenant_id,
+        job_id=job_id,
+    )
 
     try:
         results = list(collection.aggregate(pipeline))

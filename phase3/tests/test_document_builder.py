@@ -40,6 +40,31 @@ def test_build_candidate_document_success():
     )
 
 
+def test_build_candidate_document_scoped():
+    """Test document reconstruction with tenant_id and job_id scoping."""
+    mock_collection = MagicMock()
+    mock_cursor = [
+        {"chunk_id": "cand_summary_00", "section": "summary", "text": "Scoped engineer.", "chunk_index": 0}
+    ]
+    mock_find = MagicMock()
+    mock_find.sort.return_value = mock_cursor
+    mock_collection.find.return_value = mock_find
+
+    doc = build_candidate_document(
+        mock_collection,
+        "cand123",
+        tenant_id="tenant-acme",
+        job_id="backend-01"
+    )
+
+    assert doc.candidate_id == "cand123"
+    assert "Scoped engineer." in doc.text
+    mock_collection.find.assert_called_once_with(
+        {"candidate_id": "cand123", "tenant_id": "tenant-acme", "job_id": "backend-01"},
+        {"chunk_id": 1, "section": 1, "text": 1, "chunk_index": 1, "_id": 0}
+    )
+
+
 def test_build_candidate_document_truncation():
     """Test document truncation when max_chars is exceeded."""
     mock_collection = MagicMock()

@@ -48,7 +48,7 @@ _SAAS_PATTERN = re.compile(
 
 # Expected SaaS path (upload format to satisfy Phase 1 Lambda): incoming/saas__{tid}__{jid}__{aid}.pdf
 _SAAS_INCOMING_PATTERN = re.compile(
-    r"^incoming/saas__(?P<tenant_id>[^_]+)__(?P<job_id>[^_]+)__(?P<application_id>[^\.]+)\.pdf",
+    r"^incoming/saas__(?P<tenant_id>[^/]+?)__(?P<job_id>[^/]+?)__(?P<application_id>[^/]+?)(?:\.pdf)?$",
     re.IGNORECASE,
 )
 
@@ -100,7 +100,27 @@ def build_saas_resume_key(
     job_id: str,
     application_id: str,
     filename: str = "original.pdf",
+    use_incoming_prefix: bool = False,
 ) -> str:
-    """Build the canonical SaaS S3 path for an uploaded PDF resume.
-       (Uses incoming/ prefix to satisfy legacy Phase 1 hardcoded triggers)"""
+    """
+    Build the canonical SaaS S3 path for an uploaded PDF resume.
+
+    If use_incoming_prefix is True, returns the incoming/ key format
+    used to satisfy legacy Phase 1 Lambda prefix requirements.
+    """
+    if use_incoming_prefix:
+        return build_saas_incoming_key(tenant_id, job_id, application_id)
+    return f"tenants/{tenant_id}/jobs/{job_id}/applications/{application_id}/{filename}"
+
+
+def build_saas_incoming_key(
+    tenant_id: str,
+    job_id: str,
+    application_id: str,
+) -> str:
+    """
+    Build the S3 key under incoming/ (satisfying legacy Phase 1 triggers
+    while encoding full multi-tenant SaaS context).
+    """
     return f"incoming/saas__{tenant_id}__{job_id}__{application_id}.pdf"
+

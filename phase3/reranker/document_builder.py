@@ -29,6 +29,8 @@ def build_candidate_document(
     collection: Collection,
     candidate_id: str,
     max_chars: int | None = None,
+    tenant_id: str | None = None,
+    job_id: str | None = None,
 ) -> ReconstructedDocument:
     """
     Retrieve all chunks for a candidate from MongoDB, sort them by chunk_index,
@@ -38,15 +40,23 @@ def build_candidate_document(
         collection:   MongoDB candidate_chunks collection.
         candidate_id: The ID of the candidate to rebuild.
         max_chars:    Maximum string length. Defaults to config.RERANK_MAX_DOCUMENT_CHARS.
+        tenant_id:    Optional tenant_id to strictly scope chunk retrieval (SaaS mode).
+        job_id:       Optional job_id to strictly scope chunk retrieval (SaaS mode).
 
     Returns:
         ReconstructedDocument containing the text and metadata.
     """
     max_chars = max_chars or config.RERANK_MAX_DOCUMENT_CHARS
 
-    # Fetch chunks from MongoDB
+    # Fetch chunks from MongoDB with strict tenant and job scoping where provided
+    query: dict[str, object] = {"candidate_id": candidate_id}
+    if tenant_id and tenant_id.strip():
+        query["tenant_id"] = tenant_id.strip()
+    if job_id and job_id.strip():
+        query["job_id"] = job_id.strip()
+
     cursor = collection.find(
-        {"candidate_id": candidate_id},
+        query,
         {"chunk_id": 1, "section": 1, "text": 1, "chunk_index": 1, "_id": 0}
     ).sort("chunk_index", 1)
     

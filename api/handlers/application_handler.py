@@ -28,7 +28,7 @@ import boto3
 import certifi
 from pymongo import MongoClient
 
-from phase2.storage.s3_paths import build_saas_resume_key
+from phase2.storage.s3_paths import build_saas_incoming_key, build_saas_resume_key
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -197,8 +197,8 @@ def _post_application(event: dict) -> dict:
     tenant_id = job["tenant_id"]
     application_id = _new_id()
 
-    # Build the exact SaaS S3 path for this application's resume
-    s3_key = build_saas_resume_key(tenant_id, job_id, application_id)
+    # Build the exact SaaS S3 path for this application's resume (incoming format for Phase 1)
+    s3_key = build_saas_incoming_key(tenant_id, job_id, application_id)
 
     # Generate a presigned URL — the candidate uploads directly to S3
     # The API server never touches the PDF bytes.
@@ -256,33 +256,70 @@ def _post_screening(event: dict) -> dict:
     if not job_id:
         return _response(400, {"error": "job_id path parameter missing."})
 
-    # Look up tenant_id
     with _get_mongo() as client:
         db = client[MONGODB_DATABASE]
         job = db["jobs"].find_one({"_id": job_id}, {"tenant_id": 1, "status": 1})
 
-    if not job:
-        return _response(404, {"error": "Job not found."})
+        if not job:
+            return _response(404, {"error": "Job not found."})
 
-    tenant_id = job["tenant_id"]
-    screening_run_id = _new_id()
+        tenant_id = job["tenant_id"]
 
-    # Push to SQS — the ScreeningWorker Lambda will execute Phase 2+3
-    sqs = boto3.client("sqs")
-    queue_url = os.environ.get("SCREENING_QUEUE_URL", "")
-    if queue_url:
-        sqs.send_message(
-            QueueUrl=queue_url,
-            MessageBody=json.dumps({
-                "screening_run_id": screening_run_id,
-                "tenant_id": tenant_id,
+        # 1. Guard against duplicate / concurrent active runs
+        active_run = db["screening_runs"].find_one({
+            "job_id": job_id,
+            "tenant_id": tenant_id,
+            "status": {"$in": ["QUEUED", "RUNNING", "RUNNING_PHASE2", "RUNNING_PHASE3"]},
+        })
+        if active_run:
+            return _response(409, {
+                "error": "A screening run is already in progress for this job.",
+                "code": "SCREENING_ALREADY_IN_PROGRESS",
+                "screening_run_id": active_run["screening_run_id"],
+                "status": active_run["status"],
+            })
+
+        # 2. Guard against premature screening: check for indexed applications
+        indexed_count = db["applications"].count_documents({
+            "job_id": job_id,
+            "tenant_id": tenant_id,
+            "phase2_status": "INDEXED",
+        })
+        if indexed_count == 0:
+            total_count = db["applications"].count_documents({
                 "job_id": job_id,
-            }),
-        )
+                "tenant_id": tenant_id,
+            })
+            if total_count == 0:
+                return _response(409, {
+                    "error": "No applications found for this job. Cannot trigger screening.",
+                    "code": "NO_APPLICATIONS",
+                    "eligible_candidate_count": 0,
+                    "total_application_count": 0,
+                })
+            return _response(409, {
+                "error": f"No applications are indexed for screening yet ({total_count} application(s) pending processing).",
+                "code": "APPLICATIONS_NOT_INDEXED",
+                "eligible_candidate_count": 0,
+                "total_application_count": total_count,
+            })
 
-    # Record the screening run state in MongoDB
-    with _get_mongo() as client:
-        db = client[MONGODB_DATABASE]
+        screening_run_id = _new_id()
+
+        # Push to SQS — the ScreeningWorker Lambda will execute Phase 2+3
+        sqs = boto3.client("sqs")
+        queue_url = os.environ.get("SCREENING_QUEUE_URL", "")
+        if queue_url:
+            sqs.send_message(
+                QueueUrl=queue_url,
+                MessageBody=json.dumps({
+                    "screening_run_id": screening_run_id,
+                    "tenant_id": tenant_id,
+                    "job_id": job_id,
+                }),
+            )
+
+        # Record the screening run state in MongoDB
         db["screening_runs"].insert_one({
             "_id": screening_run_id,
             "screening_run_id": screening_run_id,
@@ -291,13 +328,15 @@ def _post_screening(event: dict) -> dict:
             "status": "QUEUED",
             "phase2_status": "NOT_STARTED",
             "phase3_status": "NOT_STARTED",
+            "eligible_candidate_count": indexed_count,
             "created_at": _now_iso(),
         })
 
-    logger.info("Queued screening run: %s (job: %s)", screening_run_id, job_id)
+    logger.info("Queued screening run: %s (job: %s, eligible: %d)", screening_run_id, job_id, indexed_count)
     return _response(202, {
         "screening_run_id": screening_run_id,
         "status": "QUEUED",
+        "eligible_candidate_count": indexed_count,
         "message": "Screening started. Poll GET /jobs/{job_id}/screening-results for updates.",
     })
 

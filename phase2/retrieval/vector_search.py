@@ -32,6 +32,57 @@ from phase2.retrieval.lexical_search import ChunkHit  # re-use the same NamedTup
 logger = logging.getLogger(__name__)
 
 
+def build_vector_search_pipeline(
+    query_embedding: List[float],
+    k: int,
+    num_candidates: int,
+    tenant_id: Optional[str] = None,
+    job_id: Optional[str] = None,
+) -> List[dict]:
+    """
+    Construct the MongoDB aggregation pipeline for Atlas Vector Search ($vectorSearch).
+    """
+    stage: dict = {
+        "$vectorSearch": {
+            "index": config.VECTOR_INDEX_NAME,
+            "path": "embedding",
+            "queryVector": query_embedding,
+            "numCandidates": num_candidates,
+            "limit": k,
+        }
+    }
+
+    if tenant_id or job_id:
+        pre_filter: dict = {}
+        if tenant_id and tenant_id.strip():
+            pre_filter["tenant_id"] = {"$eq": tenant_id.strip()}
+        if job_id and job_id.strip():
+            pre_filter["job_id"] = {"$eq": job_id.strip()}
+        if pre_filter:
+            stage["$vectorSearch"]["filter"] = pre_filter
+            logger.debug(
+                "Vector search scoped to tenant=%s  job=%s", tenant_id, job_id
+            )
+
+    return [
+        stage,
+        {
+            # Materialise the vector similarity score for downstream logging/debug.
+            "$addFields": {"_vec_score": {"$meta": "vectorSearchScore"}}
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "candidate_id": 1,
+                "chunk_id": 1,
+                "section": 1,
+                "source_key": 1,
+                "_vec_score": 1,
+            }
+        },
+    ]
+
+
 def vector_search(
     collection: Collection,
     query_embedding: List[float],
@@ -73,47 +124,13 @@ def vector_search(
     # Cap at 10 000 to avoid over-scanning a small free-tier collection.
     num_candidates = min(k * 10, 10_000)
 
-    # Build the $vectorSearch stage.
-    # In SaaS mode we add a pre-filter so the ANN search is strictly scoped
-    # to the correct tenant + job before similarity scoring.
-    vector_search_stage: dict = {
-        "$vectorSearch": {
-            "index": config.VECTOR_INDEX_NAME,
-            "path": "embedding",
-            "queryVector": query_embedding,
-            "numCandidates": num_candidates,
-            "limit": k,
-        }
-    }
-
-    if tenant_id or job_id:
-        pre_filter: dict = {}
-        if tenant_id:
-            pre_filter["tenant_id"] = {"$eq": tenant_id}
-        if job_id:
-            pre_filter["job_id"] = {"$eq": job_id}
-        vector_search_stage["$vectorSearch"]["filter"] = pre_filter
-        logger.debug(
-            "Vector search scoped to tenant=%s  job=%s", tenant_id, job_id
-        )
-
-    pipeline = [
-        vector_search_stage,
-        {
-            # Materialise the vector similarity score for downstream logging/debug.
-            "$addFields": {"_vec_score": {"$meta": "vectorSearchScore"}}
-        },
-        {
-            "$project": {
-                "_id": 0,
-                "candidate_id": 1,
-                "chunk_id": 1,
-                "section": 1,
-                "source_key": 1,
-                "_vec_score": 1,
-            }
-        },
-    ]
+    pipeline = build_vector_search_pipeline(
+        query_embedding=query_embedding,
+        k=k,
+        num_candidates=num_candidates,
+        tenant_id=tenant_id,
+        job_id=job_id,
+    )
 
     try:
         results = list(collection.aggregate(pipeline))

@@ -62,6 +62,51 @@ class TestParseS3Key:
         assert ctx.is_multitenant is True
         assert ctx.tenant_id == "acme"
 
+    def test_incoming_saas_path_standard(self):
+        key = "incoming/saas__acme-corp__job-backend-001__app-uuid-123.pdf"
+        ctx = parse_s3_key(key)
+        assert ctx.is_multitenant is True
+        assert ctx.tenant_id == "acme-corp"
+        assert ctx.job_id == "job-backend-001"
+        assert ctx.application_id == "app-uuid-123"
+
+    def test_incoming_saas_path_with_underscores(self):
+        key = "incoming/saas__tenant_acme_corp__job_backend_001__app_123_456.pdf"
+        ctx = parse_s3_key(key)
+        assert ctx.is_multitenant is True
+        assert ctx.tenant_id == "tenant_acme_corp"
+        assert ctx.job_id == "job_backend_001"
+        assert ctx.application_id == "app_123_456"
+
+    def test_canonical_saas_path_with_underscores(self):
+        key = "tenants/tenant_acme_corp/jobs/job_backend_001/applications/app_123_456/original.pdf"
+        ctx = parse_s3_key(key)
+        assert ctx.is_multitenant is True
+        assert ctx.tenant_id == "tenant_acme_corp"
+        assert ctx.job_id == "job_backend_001"
+        assert ctx.application_id == "app_123_456"
+
+    def test_incoming_saas_path_without_extension(self):
+        key = "incoming/saas__tenant_1__job_2__app_3"
+        ctx = parse_s3_key(key)
+        assert ctx.is_multitenant is True
+        assert ctx.tenant_id == "tenant_1"
+        assert ctx.job_id == "job_2"
+        assert ctx.application_id == "app_3"
+
+    def test_incoming_saas_path_uppercase_extension(self):
+        key = "incoming/saas__tenant_1__job_2__app_3.PDF"
+        ctx = parse_s3_key(key)
+        assert ctx.is_multitenant is True
+        assert ctx.tenant_id == "tenant_1"
+        assert ctx.job_id == "job_2"
+        assert ctx.application_id == "app_3"
+
+    def test_malformed_incoming_keys(self):
+        assert parse_s3_key("incoming/saas__onlyone").is_multitenant is False
+        assert parse_s3_key("incoming/saas__tenant__job").is_multitenant is False
+        assert parse_s3_key("incoming/random-file.pdf").is_multitenant is False
+
 
 class TestBuildSaaSKeys:
     def test_extraction_key(self):
@@ -75,6 +120,25 @@ class TestBuildSaaSKeys:
     def test_resume_key_custom_filename(self):
         key = build_saas_resume_key("acme", "job-001", "app-xyz", "john-doe-v2.pdf")
         assert key == "tenants/acme/jobs/job-001/applications/app-xyz/john-doe-v2.pdf"
+
+    def test_resume_key_use_incoming_prefix(self):
+        key = build_saas_resume_key("tenant_acme", "job_01", "app_xyz", use_incoming_prefix=True)
+        assert key == "incoming/saas__tenant_acme__job_01__app_xyz.pdf"
+        ctx = parse_s3_key(key)
+        assert ctx.is_multitenant is True
+        assert ctx.tenant_id == "tenant_acme"
+        assert ctx.job_id == "job_01"
+        assert ctx.application_id == "app_xyz"
+
+    def test_incoming_key_direct_builder(self):
+        from phase2.storage.s3_paths import build_saas_incoming_key
+        key = build_saas_incoming_key("tenant_acme_corp", "job_dev_1", "app_999")
+        assert key == "incoming/saas__tenant_acme_corp__job_dev_1__app_999.pdf"
+        ctx = parse_s3_key(key)
+        assert ctx.is_multitenant is True
+        assert ctx.tenant_id == "tenant_acme_corp"
+        assert ctx.job_id == "job_dev_1"
+        assert ctx.application_id == "app_999"
 
     def test_roundtrip(self):
         """Built key must be parseable back to the same context."""

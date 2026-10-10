@@ -73,6 +73,8 @@ def run_reranking_pipeline(
     top_k: Optional[int] = None,
     model: Optional[str] = None,
     max_doc_chars: Optional[int] = None,
+    tenant_id: Optional[str] = None,
+    job_id: Optional[str] = None,
 ) -> Phase3Output:
     """Execute the Phase 3 semantic reranking pipeline."""
     start_time = time.time()
@@ -140,7 +142,13 @@ def run_reranking_pipeline(
         document_texts: List[str] = []
         
         for cand in candidates_to_process:
-            doc = build_candidate_document(collection, cand.candidate_id, max_chars)
+            doc = build_candidate_document(
+                collection,
+                cand.candidate_id,
+                max_chars,
+                tenant_id=tenant_id,
+                job_id=job_id,
+            )
             if not doc.text.strip():
                 logger.error(
                     "Candidate %s has no text in MongoDB. Marking as failed.", 

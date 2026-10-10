@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import urllib.parse
 from typing import Any
 
 import boto3
@@ -173,9 +174,12 @@ def lambda_handler(event: dict, context: object) -> dict:
             # SQS message may come directly from S3 event notification
             # or from a simple {"s3_key": "..."} wrapper.
             if "Records" in body:
-                # Direct S3 → SQS event notification format
-                s3_key = body["Records"][0]["s3"]["object"]["key"]
+                # Direct S3 → SQS event notification format:
+                # AWS S3 URL-encodes object keys in event records.
+                raw_key = body["Records"][0]["s3"]["object"]["key"]
+                s3_key = urllib.parse.unquote_plus(raw_key)
             else:
+                # Direct caller payload: key is already unquoted
                 s3_key = body["s3_key"]
 
             _index_single(s3_key)
