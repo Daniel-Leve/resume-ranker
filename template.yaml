@@ -2,9 +2,11 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 
 Description: >
-  AI-Powered Resume Screening — SaaS Infrastructure
+  AI-Powered Resume Screening — SaaS Infrastructure (Block 3: Auth & Hardening)
   Serverless multi-tenant API + async processing workers.
-  All resources are pay-per-use to stay within $100 AWS credit budget.
+  Amazon Cognito User Pool provides JWT-based authentication.
+  Secrets Manager stores sensitive credentials (MongoDB URI, Voyage API key).
+  All resources are pay-per-use to stay within AWS free-tier limits.
 
 # ─── Parameters ───────────────────────────────────────────────────────────────
 Parameters:
@@ -14,22 +16,36 @@ Parameters:
     AllowedValues: [dev, staging, prod]
     Description: Deployment stage name.
 
-  MongoDbUri:
-    Type: String
-    NoEcho: true
-    Description: MongoDB Atlas connection string (stored in SSM or passed at deploy time).
-
-  VoyageApiKey:
-    Type: String
-    NoEcho: true
-    Description: Voyage AI API key.
-
   ResumeBucketName:
     Type: String
     Default: ai-resume-screening-dev-761595200930
     Description: >
       EXISTING Phase 1 S3 bucket. No new bucket is created.
       Phase 1 Lambda and SNS continue to operate unchanged.
+
+  # ── Secrets: passed at deploy time, stored in Secrets Manager ─────────────
+  # NOTE: Do NOT commit real values. Pass them as --parameter-overrides at deploy time:
+  #   sam deploy --parameter-overrides MongoDbUri="mongodb+srv://..." VoyageApiKey="pa-..."
+  MongoDbUri:
+    Type: String
+    NoEcho: true
+    Description: >
+      MongoDB Atlas connection string. Will be stored in Secrets Manager.
+      Passed at deploy time only — never hardcoded.
+
+  VoyageApiKey:
+    Type: String
+    NoEcho: true
+    Description: >
+      Voyage AI API key. Will be stored in Secrets Manager.
+      Passed at deploy time only — never hardcoded.
+
+  CorsAllowOrigin:
+    Type: String
+    Default: "'*'"
+    Description: >
+      CORS AllowOrigin value. Set to your frontend domain in prod:
+      e.g. "'https://app.yourcompany.com'"
 
 # ─── Globals ──────────────────────────────────────────────────────────────────
 Globals:
@@ -39,10 +55,13 @@ Globals:
     Timeout: 30
     Environment:
       Variables:
-        MONGODB_URI: !Ref MongoDbUri
+        # Secrets retrieved from Secrets Manager at runtime (not hardcoded here).
+        # Each Lambda retrieves the value using the ARN stored in these env vars.
+        MONGODB_URI_SECRET_ARN: !Ref MongoDbUriSecret
+        VOYAGE_API_KEY_SECRET_ARN: !Ref VoyageApiKeySecret
+        # Non-sensitive config — safe to put in environment directly
         MONGODB_DATABASE: resume_screening
         MONGODB_COLLECTION: candidate_chunks
-        VOYAGE_API_KEY: !Ref VoyageApiKey
         VOYAGE_MODEL: voyage-4-large
         VOYAGE_EMBEDDING_DIMENSIONS: "1024"
         VOYAGE_RERANK_MODEL: rerank-2.5
@@ -52,7 +71,92 @@ Globals:
 # ─── Resources ────────────────────────────────────────────────────────────────
 Resources:
 
+  # ── Secrets Manager ─────────────────────────────────────────────────────────
+  # Store sensitive credentials in Secrets Manager.
+  # The actual secret values are passed at deploy time (NoEcho parameters)
+  # and written here — never committed to source control.
+
+  MongoDbUriSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "/resume-screening/${StageName}/mongodb-uri"
+      Description: MongoDB Atlas connection string for the Resume Screening SaaS.
+      SecretString: !Ref MongoDbUri
+
+  VoyageApiKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub "/resume-screening/${StageName}/voyage-api-key"
+      Description: Voyage AI API key for embeddings and reranking.
+      SecretString: !Ref VoyageApiKey
+
+  # ── Cognito User Pool ────────────────────────────────────────────────────────
+  # Free tier: 10,000 MAUs/month (Essentials tier).
+  # HR users authenticate here to receive JWTs for API access.
+  # Candidates do NOT need accounts — they upload resumes via public endpoint.
+
+  ResumeScreeningUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "resume-screening-users-${StageName}"
+      # Sign in with email address
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailSubject: "Resume Screening — Verify your email"
+        EmailMessage: "Your verification code is {####}. It expires in 10 minutes."
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          TemporaryPasswordValidityDays: 7
+      # No custom attributes needed — tenant membership is in MongoDB
+      # (avoids Cognito attribute mutability limitations)
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false   # Allow self-signup via Hosted UI
+      # Post-confirmation trigger — logs new users to MongoDB
+      LambdaConfig:
+        PostConfirmation: !GetAtt PostConfirmationWorker.Arn
+
+  # Cognito User Pool Client — for browser/SPA (no client secret)
+  ResumeScreeningUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "resume-screening-spa-${StageName}"
+      UserPoolId: !Ref ResumeScreeningUserPool
+      GenerateSecret: false           # REQUIRED for browser clients
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH         # Amplify-compatible Secure Remote Password
+        - ALLOW_REFRESH_TOKEN_AUTH    # Allow silent token refresh
+      # Token validity
+      AccessTokenValidity: 1          # hours
+      IdTokenValidity: 1              # hours
+      RefreshTokenValidity: 30        # days
+      TokenValidityUnits:
+        AccessToken: hours
+        IdToken: hours
+        RefreshToken: days
+
+  # Permission: allow Cognito to invoke the PostConfirmation Lambda
+  PostConfirmationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt PostConfirmationWorker.Arn
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt ResumeScreeningUserPool.Arn
+
   # ── API Gateway ─────────────────────────────────────────────────────────────
+  # No DefaultAuthorizer — protection is applied per-route explicitly.
+  # This is the safer pattern: no risk of accidentally leaving a route public
+  # because you forgot Auth: NONE.
+
   ResumeScreeningApi:
     Type: AWS::Serverless::Api
     Properties:
@@ -61,15 +165,23 @@ Resources:
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization'"
-        AllowOrigin: "'*'"
+        AllowOrigin: !Ref CorsAllowOrigin
+      Auth:
+        # No DefaultAuthorizer — each protected route specifies it explicitly.
+        # This ensures the public /applications endpoint is never accidentally
+        # protected by a future DefaultAuthorizer addition.
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt ResumeScreeningUserPool.Arn
+            Identity:
+              Header: Authorization
 
   # ── SQS Queues ──────────────────────────────────────────────────────────────
-  # Queue 1: triggers Phase 2 Indexing when a new extracted.json lands in S3
   IndexingQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub "resume-indexing-${StageName}"
-      VisibilityTimeout: 360       # 6× the Lambda timeout for safe retry
+      VisibilityTimeout: 360
       MessageRetentionPeriod: 86400
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt IndexingDLQ.Arn
@@ -79,14 +191,13 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub "resume-indexing-dlq-${StageName}"
-      MessageRetentionPeriod: 604800  # 7 days
+      MessageRetentionPeriod: 604800
 
-  # Queue 2: triggered by HR clicking "Screen Candidates" — runs Phase 2+3
   ScreeningQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub "resume-screening-${StageName}"
-      VisibilityTimeout: 720       # Phase 2 + Phase 3 may take a few minutes
+      VisibilityTimeout: 720
       MessageRetentionPeriod: 86400
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt ScreeningDLQ.Arn
@@ -98,8 +209,7 @@ Resources:
       QueueName: !Sub "resume-screening-dlq-${StageName}"
       MessageRetentionPeriod: 604800
 
-  # ── S3 → SQS event bridge policy ────────────────────────────────────────────
-  # Allows S3 to publish ObjectCreated events to the IndexingQueue
+  # S3 → SQS event bridge policy
   IndexingQueuePolicy:
     Type: AWS::SQS::QueuePolicy
     Properties:
@@ -116,72 +226,114 @@ Resources:
               ArnLike:
                 aws:SourceArn: !Sub "arn:aws:s3:::${ResumeBucketName}"
 
-  # ── API Handler Lambdas ──────────────────────────────────────────────────────
+  # ── Shared IAM policy: read secrets ─────────────────────────────────────────
+  # Inline policy template reused by all Lambdas that need MongoDB/Voyage.
+  # SAM does not support shared managed policies natively, so we reference
+  # the secret ARNs directly in each Lambda's Policies block.
 
-  # Handles: POST /tenants, POST /tenants/{id}/jobs, POST /jobs/{id}/applications
-  # Returns presigned S3 upload URL for resume PDFs
+  # ── API Handler Lambda ───────────────────────────────────────────────────────
   ApplicationApiHandler:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub "resume-api-handler-${StageName}"
       CodeUri: .
       Handler: api.handlers.application_handler.lambda_handler
-      Description: REST API handler for job and application management.
+      Description: REST API handler for tenant, job, and application management.
       Policies:
-        - AmazonS3FullAccess           # for presigned URL generation
-        - AmazonDynamoDBReadOnlyAccess # reserved for future job-state table
+        # Presigned URL generation for applicant resume uploads
+        - Statement:
+            - Sid: S3PresignedUrlOnly
+              Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${ResumeBucketName}/incoming/*"
+        # Send screening trigger messages to SQS
         - SQSSendMessagePolicy:
             QueueName: !GetAtt ScreeningQueue.QueueName
+        # Read MongoDB URI and Voyage API key from Secrets Manager
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref MongoDbUriSecret
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref VoyageApiKeySecret
       Environment:
         Variables:
           SCREENING_QUEUE_URL: !Ref ScreeningQueue
       Events:
+        # ── Protected routes (require Cognito JWT) ─────────────────────────
         PostTenants:
           Type: Api
           Properties:
             RestApiId: !Ref ResumeScreeningApi
             Path: /tenants
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         PostJobs:
           Type: Api
           Properties:
             RestApiId: !Ref ResumeScreeningApi
             Path: /tenants/{tenant_id}/jobs
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetJobs:
           Type: Api
           Properties:
             RestApiId: !Ref ResumeScreeningApi
             Path: /tenants/{tenant_id}/jobs
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetJob:
           Type: Api
           Properties:
             RestApiId: !Ref ResumeScreeningApi
             Path: /tenants/{tenant_id}/jobs/{job_id}
             Method: GET
-        PostApplication:
-          Type: Api
-          Properties:
-            RestApiId: !Ref ResumeScreeningApi
-            Path: /jobs/{job_id}/applications
-            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         PostScreening:
           Type: Api
           Properties:
             RestApiId: !Ref ResumeScreeningApi
             Path: /jobs/{job_id}/screening
             Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         GetScreeningResults:
           Type: Api
           Properties:
             RestApiId: !Ref ResumeScreeningApi
             Path: /jobs/{job_id}/screening-results
             Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        # ── Public route (no auth — candidates upload resumes) ─────────────
+        PostApplication:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/applications
+            Method: POST
+            # No Auth property = no authorizer (intentionally public)
 
-  # ── Worker Lambdas ───────────────────────────────────────────────────────────
+  # ── Cognito Post-Confirmation Worker ─────────────────────────────────────────
+  PostConfirmationWorker:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "resume-post-confirmation-${StageName}"
+      CodeUri: .
+      Handler: api.workers.post_confirmation.lambda_handler
+      Description: >
+        Cognito PostConfirmation trigger. Logs new users to MongoDB after
+        email verification. Does NOT auto-create tenants.
+      Timeout: 15
+      MemorySize: 256
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref MongoDbUriSecret
 
-  # Phase 2 Indexing Worker — triggered by SQS when extracted.json is ready
+  # ── Phase 2 Indexing Worker ──────────────────────────────────────────────────
   IndexingWorker:
     Type: AWS::Serverless::Function
     Properties:
@@ -189,14 +341,24 @@ Resources:
       CodeUri: .
       Handler: api.workers.indexing_worker.lambda_handler
       Description: >
-        Wraps phase2.index_resumes logic. Triggered by SQS when a new
-        extracted.json lands in S3. Indexes the resume into MongoDB Atlas.
-      Timeout: 300          # 5 min — embedding via Voyage may take time
+        Triggered by SQS when extracted.json lands in S3.
+        Indexes the resume into MongoDB Atlas with full tenant context.
+      Timeout: 300
       MemorySize: 1024
       Policies:
-        - AmazonS3ReadOnlyAccess
+        # Read extracted JSON files — scoped to bucket only (not full S3)
+        - Statement:
+            - Sid: S3ReadExtracted
+              Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${ResumeBucketName}/*"
         - SQSPollerPolicy:
             QueueName: !GetAtt IndexingQueue.QueueName
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref MongoDbUriSecret
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref VoyageApiKeySecret
       Environment:
         Variables:
           LEXICAL_TOP_K: "15"
@@ -209,11 +371,11 @@ Resources:
           Type: SQS
           Properties:
             Queue: !GetAtt IndexingQueue.Arn
-            BatchSize: 1            # Process one resume at a time for reliability
+            BatchSize: 1
             FunctionResponseTypes:
               - ReportBatchItemFailures
 
-  # Phase 2+3 Screening Worker — triggered by SQS when HR starts screening
+  # ── Phase 2+3 Screening Worker ───────────────────────────────────────────────
   ScreeningWorker:
     Type: AWS::Serverless::Function
     Properties:
@@ -221,15 +383,24 @@ Resources:
       CodeUri: .
       Handler: api.workers.screening_worker.lambda_handler
       Description: >
-        Wraps phase2.search (hybrid retrieval) + phase3.rerank.
-        Triggered by SQS when HR clicks "Screen Candidates".
-        Stores results in MongoDB and S3 for the API to serve.
-      Timeout: 600          # 10 min — reranking 100 candidates takes time
+        Triggered by SQS. Runs Phase 2 hybrid retrieval + Phase 3 reranking.
+        Stores ranked candidates in MongoDB and writes audit JSON to S3.
+      Timeout: 600
       MemorySize: 1024
       Policies:
-        - AmazonS3FullAccess        # for writing output JSONs to S3
+        # Write screening result artifacts to S3 — scoped to screening prefix only
+        - Statement:
+            - Sid: S3WriteScreeningArtifacts
+              Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: !Sub "arn:aws:s3:::${ResumeBucketName}/tenants/*/screening/*"
         - SQSPollerPolicy:
             QueueName: !GetAtt ScreeningQueue.QueueName
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref MongoDbUriSecret
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref VoyageApiKeySecret
       Environment:
         Variables:
           RERANK_TOP_K: "-1"
@@ -250,6 +421,18 @@ Outputs:
     Description: Base URL for the Resume Screening REST API
     Value: !Sub "https://${ResumeScreeningApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
 
+  CognitoUserPoolId:
+    Description: Cognito User Pool ID (needed for frontend Amplify config)
+    Value: !Ref ResumeScreeningUserPool
+
+  CognitoUserPoolClientId:
+    Description: Cognito App Client ID (needed for frontend Amplify config — no secret)
+    Value: !Ref ResumeScreeningUserPoolClient
+
+  CognitoHostedUiBaseUrl:
+    Description: Base URL for Cognito Hosted UI (for testing sign-up/login)
+    Value: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${ResumeScreeningUserPool}"
+
   IndexingQueueUrl:
     Description: SQS URL for Phase 2 Indexing Queue
     Value: !Ref IndexingQueue
@@ -257,3 +440,11 @@ Outputs:
   ScreeningQueueUrl:
     Description: SQS URL for Phase 2+3 Screening Queue
     Value: !Ref ScreeningQueue
+
+  MongoDbUriSecretArn:
+    Description: ARN of the Secrets Manager secret holding the MongoDB URI
+    Value: !Ref MongoDbUriSecret
+
+  VoyageApiKeySecretArn:
+    Description: ARN of the Secrets Manager secret holding the Voyage API key
+    Value: !Ref VoyageApiKeySecret
