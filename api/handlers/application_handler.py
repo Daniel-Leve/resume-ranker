@@ -33,6 +33,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -342,19 +343,35 @@ def _post_application(event: dict) -> dict:
         ExpiresIn=PRESIGNED_URL_EXPIRY_SECONDS,
     )
 
-    # Record application in MongoDB with full tenant context
+    # Derive stable candidate_id from candidate_name (lowercased slug) or application
+    raw_name_slug = re.sub(r"[^a-zA-Z0-9\-_]+", "-", candidate_name.lower()).strip("-")
+    candidate_id = raw_name_slug or application_id
+    now = _now_iso()
+
+    # Record application in MongoDB with full domain relationships and versioning
+    initial_version = {
+        "version": 1,
+        "s3_resume_key": s3_key,
+        "uploaded_at": now,
+        "status": "PENDING_UPLOAD",
+    }
+
     app_doc = {
         "_id": application_id,
         "application_id": application_id,
         "job_id": job_id,
         "tenant_id": tenant_id,
-        "candidate_name": candidate_name,   # stored for HR display only
+        "candidate_id": candidate_id,
+        "candidate_name": candidate_name,   # stored for HR display
         "s3_resume_key": s3_key,
+        "current_resume_version": 1,
+        "resume_versions": [initial_version],
         "status": "PENDING_UPLOAD",
         "phase1_status": "NOT_STARTED",
         "phase2_status": "NOT_STARTED",
         "phase3_status": "NOT_STARTED",
-        "created_at": _now_iso(),
+        "created_at": now,
+        "updated_at": now,
     }
 
     with _get_mongo() as client:
@@ -449,6 +466,13 @@ def _post_screening(event: dict) -> dict:
                 "total_application_count": total_count,
             })
 
+        # Fetch the exact list of application IDs eligible for this screening run
+        eligible_apps = list(db["applications"].find(
+            {"job_id": job_id, "tenant_id": tenant_id, "phase2_status": "INDEXED"},
+            {"_id": 1}
+        )) if hasattr(db["applications"], "find") else []
+        input_application_ids = [str(app["_id"]) for app in eligible_apps] if eligible_apps else []
+
         screening_run_id = _new_id()
 
         # Record the screening run state in MongoDB first (so worker always finds the run)
@@ -461,6 +485,7 @@ def _post_screening(event: dict) -> dict:
             "phase2_status": "NOT_STARTED",
             "phase3_status": "NOT_STARTED",
             "eligible_candidate_count": indexed_count,
+            "input_application_ids": input_application_ids,
             "initiated_by_sub": auth.user_sub,
             "created_at": _now_iso(),
         })

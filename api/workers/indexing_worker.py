@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import urllib.parse
+from datetime import datetime, timezone
 from typing import Any
 
 import boto3
@@ -122,6 +123,16 @@ def _index_single(s3_key: str) -> None:
             )
             logger.info("Candidate %s: resume changed — deleted %d stale chunks.", candidate_id, deleted)
 
+        # Look up application to get authoritative candidate_id and resume_version
+        app_doc = None
+        current_version = 1
+        if path_ctx.application_id:
+            app_doc = db["applications"].find_one({"_id": path_ctx.application_id})
+            if app_doc:
+                if app_doc.get("candidate_id"):
+                    candidate_id = app_doc["candidate_id"]
+                current_version = app_doc.get("current_resume_version", 1)
+
         # ── Chunk ────────────────────────────────────────────────────────────
         chunks = chunk_resume(candidate_id, s3_key, text, blocks)
         if not chunks:
@@ -154,6 +165,7 @@ def _index_single(s3_key: str) -> None:
                 tenant_id=path_ctx.tenant_id,
                 job_id=path_ctx.job_id,
                 application_id=path_ctx.application_id,
+                resume_version=current_version,
             ).to_mongo_doc()
             for chunk, embedding in zip(chunks, embeddings)
         ]
@@ -161,6 +173,17 @@ def _index_single(s3_key: str) -> None:
         upsert_chunks(collection, chunk_docs)
         logger.info("Candidate %s: stored %d chunks in MongoDB.", candidate_id, len(chunk_docs))
         _update_application_status(db, path_ctx.application_id, "INDEXED")
+
+        # Mark latest version as INDEXED with content_hash in applications collection
+        if path_ctx.application_id:
+            db["applications"].update_one(
+                {"_id": path_ctx.application_id, "resume_versions.version": current_version},
+                {"$set": {
+                    "resume_versions.$.status": "INDEXED",
+                    "resume_versions.$.content_hash": content_hash,
+                    "resume_versions.$.indexed_at": datetime.now(timezone.utc).isoformat(),
+                }},
+            )
 
     except Exception as exc:
         _update_application_status(db, path_ctx.application_id, "FAILED", error=str(exc))

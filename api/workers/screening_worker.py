@@ -195,10 +195,24 @@ def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
         p2_ranks = {prov.candidate_id: i + 1 for i, prov in enumerate(fused)}
         final_candidates = []
 
+        # Map candidate_id/source_key to application_id and candidate_name from MongoDB
+        app_lookup = {}
+        for app in db["applications"].find({"job_id": job_id, "tenant_id": tenant_id}):
+            app_id = str(app["_id"])
+            cand_id = app.get("candidate_id") or app_id
+            cand_name = app.get("candidate_name")
+            app_lookup[cand_id] = (app_id, cand_name)
+            # Also map by candidate_id derived from filename
+            if app.get("s3_resume_key"):
+                from phase2.indexer.index_resumes import derive_candidate_id
+                slug = derive_candidate_id(app["s3_resume_key"])
+                app_lookup[slug] = (app_id, cand_name)
+
         for rank_pos, result in enumerate(rerank_results, start=1):
             prov = valid_candidates[result["index"]]
             p2_rank = p2_ranks[prov.candidate_id]
-            final_candidates.append({
+            app_id, cand_name = app_lookup.get(prov.candidate_id, (None, None))
+            cand_payload = {
                 "candidate_id": prov.candidate_id,
                 "rerank_rank": rank_pos,
                 "rerank_score": round(result["relevance_score"], 6),
@@ -213,7 +227,12 @@ def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
                     ],
                 },
                 "source_key": prov.source_key,
-            })
+            }
+            if app_id:
+                cand_payload["application_id"] = app_id
+            if cand_name:
+                cand_payload["candidate_name"] = cand_name
+            final_candidates.append(cand_payload)
 
         elapsed = round(time.time() - start_time, 2)
         logger.info("Phase 3 complete: %d candidates reranked in %.1fs.", len(final_candidates), elapsed)

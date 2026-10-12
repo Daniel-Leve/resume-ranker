@@ -47,6 +47,7 @@ class CandidateChunk:
     tenant_id: Optional[str] = None
     job_id: Optional[str] = None
     application_id: Optional[str] = None
+    resume_version: Optional[int] = None
 
     def to_mongo_doc(self) -> dict:
         """Serialize to a MongoDB-ready document dict. Uses chunk_id as _id."""
@@ -72,6 +73,8 @@ class CandidateChunk:
             doc["job_id"] = self.job_id
         if self.application_id is not None:
             doc["application_id"] = self.application_id
+        if self.resume_version is not None:
+            doc["resume_version"] = self.resume_version
         return doc
 
 

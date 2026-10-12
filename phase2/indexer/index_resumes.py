@@ -136,6 +136,16 @@ def ensure_operational_indexes(collection: Collection) -> None:
         background=True,
         name="idx_candidate_id",
     )
+    collection.create_index(
+        [("tenant_id", 1), ("job_id", 1), ("candidate_id", 1)],
+        background=True,
+        name="idx_tenant_job_candidate",
+    )
+    collection.create_index(
+        [("tenant_id", 1), ("job_id", 1), ("application_id", 1)],
+        background=True,
+        name="idx_tenant_job_application",
+    )
     logger.debug("Operational indexes ensured.")
 
 
