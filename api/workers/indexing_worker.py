@@ -28,9 +28,9 @@ import urllib.parse
 from typing import Any
 
 import boto3
-import certifi
-from pymongo import MongoClient
 
+from api.auth.secrets import get_mongodb_uri
+from api.storage.mongo import get_mongo_client
 from phase2 import config
 from phase2.indexer.chunker import chunk_resume, compute_content_hash
 from phase2.indexer.embedder import embed_texts
@@ -50,11 +50,8 @@ S3_BUCKET = os.environ["S3_BUCKET_NAME"]
 
 
 def _get_mongo() -> MongoClient:
-    return MongoClient(
-        config.MONGODB_URI,
-        serverSelectionTimeoutMS=15_000,
-        tlsCAFile=certifi.where(),
-    )
+    uri = get_mongodb_uri() if os.environ.get("MONGODB_URI_SECRET_ARN") or not config.MONGODB_URI else config.MONGODB_URI
+    return get_mongo_client(uri)
 
 
 def _update_application_status(db, application_id: str, status: str, error: str | None = None) -> None:
@@ -73,40 +70,41 @@ def _index_single(s3_key: str) -> None:
     """Index a single extracted.json S3 key into MongoDB."""
     logger.info("Indexing S3 key: %s", s3_key)
 
-    # ── Read Phase 1 JSON from S3 ───────────────────────────────────────────
-    s3 = boto3.client("s3", region_name=config.AWS_REGION)
-    response = s3.get_object(Bucket=S3_BUCKET, Key=s3_key)
-    data = json.loads(response["Body"].read().decode("utf-8"))
+    # ── Parse initial path context from S3 key if multitenant format ────────
+    path_ctx = parse_s3_key(s3_key)
 
-    if data.get("status") != "SUCCEEDED":
-        raise ValueError(f"Phase 1 status is not SUCCEEDED: {data.get('status')}")
-
-    text: str = data.get("text", "").strip()
-    if not text:
-        raise ValueError("Phase 1 extracted JSON has empty text field.")
-
-    source_file_key = data.get("source", {}).get("key", s3_key)
-    
-    # ── Parse path context from original PDF path ───────────────────────────
-    # Phase 1 might write to extracted/<id>.json, so we parse the original PDF path
-    # stored inside the JSON to reliably recover the tenant/job/application IDs.
-    path_ctx = parse_s3_key(source_file_key)
-    if path_ctx.is_multitenant:
-        logger.info(
-            "SaaS context recovered — tenant=%s  job=%s  application=%s",
-            path_ctx.tenant_id, path_ctx.job_id, path_ctx.application_id,
-        )
-
-    candidate_id = derive_candidate_id(source_file_key)
-    content_hash = compute_content_hash(text)
-    blocks = data.get("blocks", [])
-
-    # ── Idempotency check ────────────────────────────────────────────────────
     mongo_client = _get_mongo()
-    try:
-        collection = mongo_client[config.MONGODB_DATABASE][config.MONGODB_COLLECTION]
-        db = mongo_client[config.MONGODB_DATABASE]
+    db = mongo_client[config.MONGODB_DATABASE]
+    collection = db[config.MONGODB_COLLECTION]
 
+    try:
+        # ── Read Phase 1 JSON from S3 ───────────────────────────────────────────
+        s3 = boto3.client("s3", region_name=config.AWS_REGION)
+        response = s3.get_object(Bucket=S3_BUCKET, Key=s3_key)
+        data = json.loads(response["Body"].read().decode("utf-8"))
+
+        source_file_key = data.get("source", {}).get("key", s3_key)
+        # Parse original PDF path stored inside the JSON if richer context is available
+        resolved_ctx = parse_s3_key(source_file_key)
+        if resolved_ctx.is_multitenant:
+            path_ctx = resolved_ctx
+            logger.info(
+                "SaaS context recovered — tenant=%s  job=%s  application=%s",
+                path_ctx.tenant_id, path_ctx.job_id, path_ctx.application_id,
+            )
+
+        if data.get("status") != "SUCCEEDED":
+            raise ValueError(f"Phase 1 status is not SUCCEEDED: {data.get('status')}")
+
+        text: str = data.get("text", "").strip()
+        if not text:
+            raise ValueError("Phase 1 extracted JSON has empty text field.")
+
+        candidate_id = derive_candidate_id(source_file_key)
+        content_hash = compute_content_hash(text)
+        blocks = data.get("blocks", [])
+
+        # ── Idempotency check ────────────────────────────────────────────────────
         _update_application_status(db, path_ctx.application_id, "INDEXING")
 
         existing_hash = get_existing_hash(collection, s3_key)
@@ -116,7 +114,12 @@ def _index_single(s3_key: str) -> None:
             return
 
         if existing_hash and existing_hash != content_hash:
-            deleted = delete_candidate_chunks(collection, candidate_id)
+            deleted = delete_candidate_chunks(
+                collection,
+                candidate_id,
+                tenant_id=path_ctx.tenant_id,
+                job_id=path_ctx.job_id,
+            )
             logger.info("Candidate %s: resume changed — deleted %d stale chunks.", candidate_id, deleted)
 
         # ── Chunk ────────────────────────────────────────────────────────────
@@ -159,8 +162,9 @@ def _index_single(s3_key: str) -> None:
         logger.info("Candidate %s: stored %d chunks in MongoDB.", candidate_id, len(chunk_docs))
         _update_application_status(db, path_ctx.application_id, "INDEXED")
 
-    finally:
-        mongo_client.close()
+    except Exception as exc:
+        _update_application_status(db, path_ctx.application_id, "FAILED", error=str(exc))
+        raise
 
 
 def lambda_handler(event: dict, context: object) -> dict:

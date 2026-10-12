@@ -148,9 +148,20 @@ def get_existing_hash(collection: Collection, source_key: str) -> Optional[str]:
     return doc["content_hash"] if doc else None
 
 
-def delete_candidate_chunks(collection: Collection, candidate_id: str) -> int:
-    """Delete all chunks for a candidate. Returns count deleted."""
-    result = collection.delete_many({"candidate_id": candidate_id})
+def delete_candidate_chunks(
+    collection: Collection,
+    candidate_id: str,
+    tenant_id: Optional[str] = None,
+    job_id: Optional[str] = None,
+) -> int:
+    """Delete chunks for a candidate within the specified tenant/job context. Returns count deleted."""
+    filter_query: dict[str, Any] = {"candidate_id": candidate_id}
+    if tenant_id and tenant_id.strip():
+        filter_query["tenant_id"] = tenant_id.strip()
+    if job_id and job_id.strip():
+        filter_query["job_id"] = job_id.strip()
+
+    result = collection.delete_many(filter_query)
     return result.deleted_count
 
 

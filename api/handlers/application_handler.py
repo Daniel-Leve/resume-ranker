@@ -48,6 +48,7 @@ from api.auth.context import (
     require_tenant_access,
 )
 from api.auth.secrets import get_mongodb_uri
+from api.storage.mongo import get_mongo_client
 from phase2.storage.s3_paths import build_saas_incoming_key
 
 logger = logging.getLogger(__name__)
@@ -73,11 +74,7 @@ def _response(status: int, body: Any) -> dict:
 
 
 def _get_mongo() -> MongoClient:
-    return MongoClient(
-        get_mongodb_uri(),
-        serverSelectionTimeoutMS=10_000,
-        tlsCAFile=certifi.where(),
-    )
+    return get_mongo_client(get_mongodb_uri())
 
 
 def _now_iso() -> str:
@@ -454,20 +451,7 @@ def _post_screening(event: dict) -> dict:
 
         screening_run_id = _new_id()
 
-        # Push to SQS — the ScreeningWorker Lambda will execute Phase 2+3
-        sqs = boto3.client("sqs")
-        queue_url = os.environ.get("SCREENING_QUEUE_URL", "")
-        if queue_url:
-            sqs.send_message(
-                QueueUrl=queue_url,
-                MessageBody=json.dumps({
-                    "screening_run_id": screening_run_id,
-                    "tenant_id": tenant_id,
-                    "job_id": job_id,
-                }),
-            )
-
-        # Record the screening run state in MongoDB
+        # Record the screening run state in MongoDB first (so worker always finds the run)
         db["screening_runs"].insert_one({
             "_id": screening_run_id,
             "screening_run_id": screening_run_id,
@@ -480,6 +464,19 @@ def _post_screening(event: dict) -> dict:
             "initiated_by_sub": auth.user_sub,
             "created_at": _now_iso(),
         })
+
+        # Push to SQS — the ScreeningWorker Lambda will execute Phase 2+3
+        sqs = boto3.client("sqs")
+        queue_url = os.environ.get("SCREENING_QUEUE_URL", "")
+        if queue_url:
+            sqs.send_message(
+                QueueUrl=queue_url,
+                MessageBody=json.dumps({
+                    "screening_run_id": screening_run_id,
+                    "tenant_id": tenant_id,
+                    "job_id": job_id,
+                }),
+            )
 
     logger.info(
         "Queued screening run %s (job: %s, eligible: %d, by: %s)",
