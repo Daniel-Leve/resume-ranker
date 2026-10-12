@@ -10,3 +10,4 @@ node_modules/
 .venv/
 output/
 .aws-sam/
+samconfig.toml
