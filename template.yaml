@@ -260,6 +260,14 @@ Resources:
           SCREENING_QUEUE_URL: !Ref ScreeningQueue
       Events:
         # ── Protected routes (require Cognito JWT) ─────────────────────────
+        GetMe:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /me
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         PostTenants:
           Type: Api
           Properties:
@@ -292,6 +300,30 @@ Resources:
             Method: GET
             Auth:
               Authorizer: CognitoAuthorizer
+        PatchJob:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}
+            Method: PATCH
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetApplications:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/applications
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetApplication:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/applications/{application_id}
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
         PostScreening:
           Type: Api
           Properties:
@@ -308,14 +340,73 @@ Resources:
             Method: GET
             Auth:
               Authorizer: CognitoAuthorizer
-        # ── Public route (no auth — candidates upload resumes) ─────────────
+        GetScreeningRun:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /screening-runs/{screening_run_id}
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetTenantMembers:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /tenants/{tenant_id}/members
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        DeleteJob:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}
+            Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
+        DeleteApplication:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/applications/{application_id}
+            Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
+        PostTenantMember:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /tenants/{tenant_id}/members
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        DeleteTenantMember:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /tenants/{tenant_id}/members/{user_sub}
+            Method: DELETE
+            Auth:
+              Authorizer: CognitoAuthorizer
+        # ── Public routes (no auth — candidate facing) ──────────────────────
+        GetPublicJob:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}
+            Method: GET
         PostApplication:
           Type: Api
           Properties:
             RestApiId: !Ref ResumeScreeningApi
             Path: /jobs/{job_id}/applications
             Method: POST
-            # No Auth property = no authorizer (intentionally public)
+        GetApplicationStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/applications/{application_id}/status
+            Method: GET
 
   # ── Cognito Post-Confirmation Worker ─────────────────────────────────────────
   PostConfirmationWorker:

@@ -1,0 +1,762 @@
+openapi: 3.0.3
+info:
+  title: AI-Powered Resume Screening SaaS API
+  description: >
+    Multi-tenant REST API for AI-powered resume screening, applicant ingestion,
+    hybrid retrieval, semantic reranking, and evidence-grounded explainability.
+  version: 1.0.0
+servers:
+  - url: https://{api_id}.execute-api.ap-south-1.amazonaws.com/{stage}
+    variables:
+      api_id:
+        default: vxbiq8rt27
+      stage:
+        default: dev
+
+components:
+  securitySchemes:
+    CognitoAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Amazon Cognito User Pool JWT (passed in the Authorization header).
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: Authentication required.
+        code:
+          type: string
+          example: FORBIDDEN
+
+    Tenant:
+      type: object
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE]
+        created_at:
+          type: string
+          format: date-time
+
+    UserIdentity:
+      type: object
+      properties:
+        user_sub:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+        tenants:
+          type: array
+          items:
+            type: object
+            properties:
+              tenant_id:
+                type: string
+              name:
+                type: string
+              role:
+                type: string
+                enum: [ADMIN, MEMBER]
+              status:
+                type: string
+                enum: [ACTIVE, INACTIVE]
+
+    JobPublic:
+      type: object
+      properties:
+        job_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, CLOSED, ARCHIVED]
+        created_at:
+          type: string
+          format: date-time
+
+    JobRecruiter:
+      type: object
+      properties:
+        job_id:
+          type: string
+        tenant_id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, CLOSED, ARCHIVED]
+        created_at:
+          type: string
+          format: date-time
+        application_count:
+          type: integer
+
+    ApplicationPublicStatus:
+      type: object
+      properties:
+        application_id:
+          type: string
+        job_id:
+          type: string
+        candidate_name:
+          type: string
+        status:
+          type: string
+          enum: [PENDING_UPLOAD, UPLOADED, PROCESSING, INDEXED, ARCHIVED, FAILED]
+        phase1_status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, SUCCEEDED, FAILED]
+        phase2_status:
+          type: string
+          enum: [NOT_STARTED, INDEXING, INDEXED, FAILED]
+        created_at:
+          type: string
+          format: date-time
+
+    ApplicationRecruiterDetail:
+      type: object
+      properties:
+        application_id:
+          type: string
+        job_id:
+          type: string
+        tenant_id:
+          type: string
+        candidate_id:
+          type: string
+        candidate_name:
+          type: string
+        s3_resume_key:
+          type: string
+        current_resume_version:
+          type: integer
+        resume_versions:
+          type: array
+          items:
+            type: object
+            properties:
+              version:
+                type: integer
+              s3_resume_key:
+                type: string
+              uploaded_at:
+                type: string
+              status:
+                type: string
+        status:
+          type: string
+        phase1_status:
+          type: string
+        phase2_status:
+          type: string
+        phase3_status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SupportingEvidence:
+      type: object
+      properties:
+        chunk_id:
+          type: string
+        section:
+          type: string
+        excerpt:
+          type: string
+        relevance_keyword:
+          type: string
+        content_hash:
+          type: string
+
+    RequirementAlignment:
+      type: object
+      properties:
+        requirement:
+          type: string
+        category:
+          type: string
+          enum: [required, preferred, general]
+        status:
+          type: string
+          enum: [supported, not_established]
+        supporting_chunks:
+          type: array
+          items:
+            type: string
+        evidence_excerpts:
+          type: array
+          items:
+            type: string
+        rationale:
+          type: string
+
+    CandidateExplanation:
+      type: object
+      properties:
+        candidate_id:
+          type: string
+        rerank_rank:
+          type: integer
+        rerank_score:
+          type: number
+        summary:
+          type: string
+        matched_sections:
+          type: array
+          items:
+            type: string
+        supporting_evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupportingEvidence'
+        requirement_alignment:
+          type: array
+          items:
+            $ref: '#/components/schemas/RequirementAlignment'
+        evidence_gaps:
+          type: array
+          items:
+            type: string
+        limitations:
+          type: array
+          items:
+            type: string
+        explanation_version:
+          type: string
+          example: "1.0.0"
+
+    RerankedCandidateResult:
+      type: object
+      properties:
+        candidate_id:
+          type: string
+        application_id:
+          type: string
+        candidate_name:
+          type: string
+        rerank_rank:
+          type: integer
+        rerank_score:
+          type: number
+        rank_change:
+          type: integer
+        phase2:
+          type: object
+          properties:
+            hybrid_score:
+              type: number
+            lexical_rank:
+              type: integer
+            vector_rank:
+              type: integer
+            matched_chunks:
+              type: array
+              items:
+                type: object
+                properties:
+                  chunk_id:
+                    type: string
+                  section:
+                    type: string
+        source_key:
+          type: string
+        explanation:
+          $ref: '#/components/schemas/CandidateExplanation'
+
+    ScreeningRun:
+      type: object
+      properties:
+        screening_run_id:
+          type: string
+          format: uuid
+        job_id:
+          type: string
+        tenant_id:
+          type: string
+        status:
+          type: string
+          enum: [QUEUED, RUNNING_PHASE2, RUNNING_PHASE3, COMPLETED, FAILED]
+        phase2_status:
+          type: string
+          enum: [NOT_STARTED, RUNNING, COMPLETED, FAILED]
+        phase3_status:
+          type: string
+          enum: [NOT_STARTED, RUNNING, COMPLETED, SKIPPED, FAILED]
+        phase4_status:
+          type: string
+          enum: [NOT_STARTED, COMPLETED, SKIPPED, FAILED]
+        eligible_candidate_count:
+          type: integer
+        candidate_count:
+          type: integer
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/RerankedCandidateResult'
+        processing_time_sec:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+paths:
+  /me:
+    get:
+      summary: Get Authenticated User Identity & Tenants
+      description: Returns verified Cognito claims and tenant memberships.
+      security:
+        - CognitoAuth: []
+      responses:
+        '200':
+          description: User profile and tenant list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserIdentity'
+        '401':
+          description: Unauthenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tenants:
+    post:
+      summary: Create Tenant
+      description: Creates a new tenant organization and assigns caller as ADMIN.
+      security:
+        - CognitoAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Tenant created successfully.
+        '400':
+          description: Missing or invalid tenant name.
+
+  /tenants/{tenant_id}/jobs:
+    get:
+      summary: List Tenant Jobs
+      description: List all jobs belonging to the specified tenant. Requires MEMBER role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of jobs.
+        '403':
+          description: Forbidden (not a member of this tenant).
+    post:
+      summary: Create Job
+      description: Creates a job posting under the tenant. Requires ADMIN role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Job created.
+        '403':
+          description: Forbidden (requires ADMIN role).
+
+  /tenants/{tenant_id}/jobs/{job_id}:
+    get:
+      summary: Get Tenant Job Detail
+      description: Recruiter detail view of a job. Requires MEMBER role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobRecruiter'
+        '404':
+          description: Job not found.
+
+  /jobs/{job_id}:
+    get:
+      summary: Get Public Job Details
+      description: Public job description for candidate application portal. No authentication required. Strips internal tenant metadata.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Public job details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobPublic'
+        '404':
+          description: Job not found.
+    patch:
+      summary: Update Job Posting
+      description: Update job title, description, or status (OPEN / CLOSED / ARCHIVED). Requires ADMIN role in owning tenant.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                status:
+                  type: string
+                  enum: [OPEN, CLOSED, ARCHIVED]
+      responses:
+        '200':
+          description: Updated job.
+        '403':
+          description: Forbidden (requires ADMIN role).
+    delete:
+      summary: Archive Job Posting
+      description: Safely archives a job (soft delete) to preserve application and screening audit history. Requires ADMIN role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job archived successfully.
+        '403':
+          description: Forbidden (requires ADMIN role).
+        '404':
+          description: Job not found.
+
+  /jobs/{job_id}/applications:
+    get:
+      summary: List Job Applications
+      description: Recruiter list of applications for a job with pagination. Requires MEMBER role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: skip
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Paginated applications list.
+    post:
+      summary: Submit Candidate Application
+      description: Public candidate submission. Creates application and returns S3 presigned upload URL for PDF.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [candidate_name]
+              properties:
+                candidate_name:
+                  type: string
+      responses:
+        '201':
+          description: Application registered, upload URL returned.
+        '409':
+          description: Job is CLOSED or ARCHIVED.
+
+  /jobs/{job_id}/applications/{application_id}:
+    get:
+      summary: Get Application Detail
+      description: Recruiter detail view of applicant and resume version status. Requires MEMBER role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationRecruiterDetail'
+        '404':
+          description: Application not found.
+    delete:
+      summary: Archive Candidate Application
+      description: Safely archives an application (soft delete) while preserving audit logs. Requires MEMBER role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Application archived successfully.
+        '404':
+          description: Application not found.
+
+  /jobs/{job_id}/applications/{application_id}/status:
+    get:
+      summary: Candidate Application Status
+      description: Public status check for candidate using their application ID. No auth required.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationPublicStatus'
+        '404':
+          description: Application not found.
+
+  /jobs/{job_id}/screening:
+    post:
+      summary: Trigger Screening Pipeline
+      description: Starts Phase 2+3+4 screening for all INDEXED applications. Requires ADMIN role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          description: Screening queued successfully.
+        '409':
+          description: Conflict (no indexed applications or run already active).
+
+  /jobs/{job_id}/screening-results:
+    get:
+      summary: Get Latest Screening Results
+      description: Returns the latest completed or running screening run with Phase 4 explanations. Requires MEMBER role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScreeningRun'
+
+  /screening-runs/{screening_run_id}:
+    get:
+      summary: Get Specific Screening Run
+      description: Returns screening run by ID with tenant isolation verification. Requires MEMBER role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: screening_run_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScreeningRun'
+
+  /tenants/{tenant_id}/members:
+    get:
+      summary: List Tenant Members
+      description: Lists users in the tenant organization. Requires MEMBER role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of members.
+    post:
+      summary: Add or Update Tenant Member
+      description: Adds or assigns a role to a user in the tenant. Requires ADMIN role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_sub, role]
+              properties:
+                user_sub:
+                  type: string
+                role:
+                  type: string
+                  enum: [MEMBER, ADMIN]
+      responses:
+        '201':
+          description: Member added or updated.
+
+  /tenants/{tenant_id}/members/{user_sub}:
+    delete:
+      summary: Revoke Tenant Membership
+      description: Revokes a user's membership in the tenant organization. Protected against revoking the sole remaining administrator. Requires ADMIN role.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: user_sub
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Membership revoked successfully.
+        '400':
+          description: Cannot revoke sole administrator.
+        '403':
+          description: Forbidden (requires ADMIN role).
+        '404':
+          description: Membership not found.

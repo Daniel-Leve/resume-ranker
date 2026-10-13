@@ -238,6 +238,8 @@ def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
         logger.info("Phase 3 complete: %d candidates reranked in %.1fs.", len(final_candidates), elapsed)
 
         # ── Phase 4: Evidence-Grounded Ranking Explanations ───────────────
+        p4_status = "NOT_STARTED"
+        p4_error = None
         try:
             from phase4.explainer import enrich_screening_candidates_with_explanations
             final_candidates = enrich_screening_candidates_with_explanations(
@@ -247,19 +249,26 @@ def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
                 tenant_id=tenant_id,
                 job_id=job_id,
             )
+            p4_status = "COMPLETED"
             logger.info("Phase 4 explainability attached for %d candidates.", len(final_candidates))
         except Exception as p4_err:
+            p4_status = "FAILED"
+            p4_error = str(p4_err)
             logger.warning("Phase 4 explainability generation skipped/failed: %s", p4_err)
 
         # ── Persist results in MongoDB ─────────────────────────────────────
-        _update_run_status(db, screening_run_id, "COMPLETED", {
+        status_payload = {
             "phase3_status": "COMPLETED",
-            "phase4_status": "COMPLETED",
+            "phase4_status": p4_status,
             "candidates": final_candidates,
             "candidate_count": len(final_candidates),
             "processing_time_sec": elapsed,
             "completed_at": _now_iso(),
-        })
+        }
+        if p4_error:
+            status_payload["phase4_error"] = p4_error
+
+        _update_run_status(db, screening_run_id, "COMPLETED", status_payload)
 
         # ── Write artifacts to S3 ──────────────────────────────────────────
         artifact_key = (

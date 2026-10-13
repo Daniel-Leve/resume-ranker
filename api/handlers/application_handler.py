@@ -562,16 +562,524 @@ def _get_screening_results(event: dict) -> dict:
     return _response(200, run)
 
 
+def _get_me(event: dict) -> dict:
+    """
+    GET /me  [PROTECTED — requires valid JWT]
+    Returns the authenticated user's identity and list of tenant memberships.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        memberships = list(db["tenant_memberships"].find({"user_sub": auth.user_sub}, {"_id": 0}))
+
+        tenants_list = []
+        for m in memberships:
+            tid = m["tenant_id"]
+            tenant_doc = db["tenants"].find_one({"_id": tid}, {"name": 1, "status": 1})
+            tenants_list.append({
+                "tenant_id": tid,
+                "name": tenant_doc.get("name", "Unknown") if tenant_doc else "Unknown",
+                "role": m.get("role", "MEMBER"),
+                "status": tenant_doc.get("status", "ACTIVE") if tenant_doc else "INACTIVE",
+            })
+
+    return _response(200, {
+        "user_sub": auth.user_sub,
+        "email": auth.email,
+        "username": auth.username,
+        "tenants": tenants_list,
+    })
+
+
+def _get_public_job(event: dict) -> dict:
+    """
+    GET /jobs/{job_id}  [PUBLIC — Candidate Portal]
+    Returns public job posting details without revealing tenant or internal data.
+    """
+    job_id = (event.get("pathParameters") or {}).get("job_id")
+    if not job_id:
+        return _response(400, {"error": "job_id path parameter missing."})
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        job = db["jobs"].find_one({"_id": job_id})
+
+    if not job:
+        return _response(404, {"error": "Job not found."})
+
+    return _response(200, {
+        "job_id": job.get("job_id", job.get("_id")),
+        "title": job.get("title", ""),
+        "description": job.get("description", ""),
+        "status": job.get("status", "OPEN"),
+        "created_at": job.get("created_at"),
+    })
+
+
+def _patch_job(event: dict) -> dict:
+    """
+    PATCH /jobs/{job_id}  [PROTECTED — requires ADMIN role in owning tenant]
+    Updates job title, description, or status (OPEN / CLOSED).
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    job_id = (event.get("pathParameters") or {}).get("job_id")
+    if not job_id:
+        return _response(400, {"error": "job_id path parameter missing."})
+
+    body = json.loads(event.get("body") or "{}")
+    allowed_fields = ["title", "description", "status"]
+    update_data = {}
+
+    for field in allowed_fields:
+        if field in body:
+            val = body[field]
+            if field == "status" and val not in ["OPEN", "CLOSED", "ARCHIVED"]:
+                return _response(400, {
+                    "error": "Field 'status' must be 'OPEN', 'CLOSED', or 'ARCHIVED'.",
+                    "code": "INVALID_STATUS",
+                })
+            if field == "title" and not str(val).strip():
+                return _response(400, {"error": "Field 'title' cannot be empty."})
+            update_data[field] = val.strip() if isinstance(val, str) else val
+
+    if not update_data:
+        return _response(400, {
+            "error": "At least one of 'title', 'description', or 'status' must be provided.",
+        })
+
+    update_data["updated_at"] = _now_iso()
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        tenant_id = _resolve_job_tenant(db, job_id)
+        if not tenant_id:
+            return _response(404, {"error": "Job not found."})
+
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="ADMIN"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have admin access to this job's tenant.",
+                "code": "FORBIDDEN",
+            })
+
+        db["jobs"].update_one({"_id": job_id}, {"$set": update_data})
+        updated_job = db["jobs"].find_one({"_id": job_id}, {"_id": 0})
+
+    return _response(200, updated_job)
+
+
+def _get_applications(event: dict) -> dict:
+    """
+    GET /jobs/{job_id}/applications  [PROTECTED — requires MEMBER role in owning tenant]
+    Lists applications for the job with pagination and optional status filter.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    job_id = (event.get("pathParameters") or {}).get("job_id")
+    if not job_id:
+        return _response(400, {"error": "job_id path parameter missing."})
+
+    qs = event.get("queryStringParameters") or {}
+    try:
+        limit = min(max(int(qs.get("limit", 50)), 1), 100)
+        skip = max(int(qs.get("skip", 0)), 0)
+    except ValueError:
+        return _response(400, {"error": "Parameters 'limit' and 'skip' must be valid integers."})
+
+    status_filter = qs.get("status")
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        tenant_id = _resolve_job_tenant(db, job_id)
+        if not tenant_id:
+            return _response(404, {"error": "Job not found."})
+
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="MEMBER"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have access to this job's tenant.",
+                "code": "FORBIDDEN",
+            })
+
+        query: dict[str, Any] = {"job_id": job_id, "tenant_id": tenant_id}
+        if status_filter:
+            query["status"] = status_filter
+
+        total = db["applications"].count_documents(query)
+        cursor = db["applications"].find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+        apps = list(cursor)
+
+    return _response(200, {
+        "job_id": job_id,
+        "total": total,
+        "limit": limit,
+        "skip": skip,
+        "applications": apps,
+    })
+
+
+def _get_application(event: dict) -> dict:
+    """
+    GET /jobs/{job_id}/applications/{application_id}  [PROTECTED — requires MEMBER role]
+    Returns single application detail and resume processing status.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    params = event.get("pathParameters") or {}
+    job_id = params.get("job_id")
+    app_id = params.get("application_id")
+    if not job_id or not app_id:
+        return _response(400, {"error": "job_id and application_id path parameters required."})
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        tenant_id = _resolve_job_tenant(db, job_id)
+        if not tenant_id:
+            return _response(404, {"error": "Job not found."})
+
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="MEMBER"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have access to this job's tenant.",
+                "code": "FORBIDDEN",
+            })
+
+        app = db["applications"].find_one(
+            {"_id": app_id, "job_id": job_id, "tenant_id": tenant_id},
+            {"_id": 0},
+        )
+
+    if not app:
+        return _response(404, {"error": "Application not found."})
+
+    return _response(200, app)
+
+
+def _get_screening_run_by_id(event: dict) -> dict:
+    """
+    GET /screening-runs/{screening_run_id}  [PROTECTED — requires MEMBER role in owning tenant]
+    Returns screening run details by run ID.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    run_id = (event.get("pathParameters") or {}).get("screening_run_id")
+    if not run_id:
+        return _response(400, {"error": "screening_run_id path parameter missing."})
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        run = db["screening_runs"].find_one({"_id": run_id}, {"_id": 0})
+        if not run:
+            return _response(404, {"error": "Screening run not found."})
+
+        tenant_id = run.get("tenant_id")
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="MEMBER"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have access to this screening run's tenant.",
+                "code": "FORBIDDEN",
+            })
+
+    return _response(200, run)
+
+
+def _get_tenant_members(event: dict) -> dict:
+    """
+    GET /tenants/{tenant_id}/members  [PROTECTED — requires MEMBER role]
+    Returns members of the tenant.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    tenant_id = (event.get("pathParameters") or {}).get("tenant_id")
+    if not tenant_id:
+        return _response(400, {"error": "tenant_id path parameter missing."})
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="MEMBER"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have access to this tenant.",
+                "code": "FORBIDDEN",
+            })
+
+        members = list(db["tenant_memberships"].find({"tenant_id": tenant_id}, {"_id": 0}))
+
+    return _response(200, {"tenant_id": tenant_id, "members": members})
+
+
+def _post_tenant_member(event: dict) -> dict:
+    """
+    POST /tenants/{tenant_id}/members  [PROTECTED — requires ADMIN role]
+    Adds or updates a member's role in the tenant.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    tenant_id = (event.get("pathParameters") or {}).get("tenant_id")
+    if not tenant_id:
+        return _response(400, {"error": "tenant_id path parameter missing."})
+
+    body = json.loads(event.get("body") or "{}")
+    user_sub = body.get("user_sub", "").strip()
+    role = body.get("role", "MEMBER").strip().upper()
+
+    if not user_sub:
+        return _response(400, {"error": "Field 'user_sub' is required."})
+    if role not in ["MEMBER", "ADMIN"]:
+        return _response(400, {"error": "Field 'role' must be 'MEMBER' or 'ADMIN'."})
+
+    now = _now_iso()
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="ADMIN"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have admin access to this tenant.",
+                "code": "FORBIDDEN",
+            })
+
+        member_id = f"{user_sub}:{tenant_id}"
+        db["tenant_memberships"].update_one(
+            {"_id": member_id},
+            {
+                "$set": {
+                    "user_sub": user_sub,
+                    "tenant_id": tenant_id,
+                    "role": role,
+                    "updated_at": now,
+                },
+                "$setOnInsert": {
+                    "created_at": now,
+                },
+            },
+            upsert=True,
+        )
+
+    return _response(201, {
+        "tenant_id": tenant_id,
+        "user_sub": user_sub,
+        "role": role,
+    })
+
+
+def _get_candidate_application_status(event: dict) -> dict:
+    """
+    GET /jobs/{job_id}/applications/{application_id}/status  [PUBLIC — Candidate Portal]
+    Returns applicant's processing status without exposing recruiter or candidate PII.
+    """
+    params = event.get("pathParameters") or {}
+    job_id = params.get("job_id")
+    app_id = params.get("application_id")
+    if not job_id or not app_id:
+        return _response(400, {"error": "job_id and application_id path parameters required."})
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        app = db["applications"].find_one({"_id": app_id, "job_id": job_id})
+
+    if not app:
+        return _response(404, {"error": "Application not found."})
+
+    return _response(200, {
+        "application_id": app_id,
+        "job_id": job_id,
+        "status": app.get("status", "PENDING_UPLOAD"),
+        "phase1_status": app.get("phase1_status", "NOT_STARTED"),
+        "phase2_status": app.get("phase2_status", "NOT_STARTED"),
+        "created_at": app.get("created_at"),
+    })
+
+
+def _delete_job(event: dict) -> dict:
+    """
+    DELETE /jobs/{job_id}  [PROTECTED — requires ADMIN role in owning tenant]
+    Safely archives a job (soft delete) to preserve application and screening audit trails.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    job_id = (event.get("pathParameters") or {}).get("job_id")
+    if not job_id:
+        return _response(400, {"error": "job_id path parameter missing."})
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        tenant_id = _resolve_job_tenant(db, job_id)
+        if not tenant_id:
+            return _response(404, {"error": "Job not found."})
+
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="ADMIN"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have admin access to this job's tenant.",
+                "code": "FORBIDDEN",
+            })
+
+        db["jobs"].update_one(
+            {"_id": job_id},
+            {"$set": {"status": "ARCHIVED", "updated_at": _now_iso()}},
+        )
+
+    return _response(200, {
+        "job_id": job_id,
+        "status": "ARCHIVED",
+        "message": "Job successfully archived.",
+    })
+
+
+def _delete_application(event: dict) -> dict:
+    """
+    DELETE /jobs/{job_id}/applications/{application_id}  [PROTECTED — requires MEMBER role]
+    Safely archives an application (soft delete) while preserving audit logs.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    params = event.get("pathParameters") or {}
+    job_id = params.get("job_id")
+    app_id = params.get("application_id")
+    if not job_id or not app_id:
+        return _response(400, {"error": "job_id and application_id path parameters required."})
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        tenant_id = _resolve_job_tenant(db, job_id)
+        if not tenant_id:
+            return _response(404, {"error": "Job not found."})
+
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="MEMBER"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have access to this job's tenant.",
+                "code": "FORBIDDEN",
+            })
+
+        res = db["applications"].update_one(
+            {"_id": app_id, "job_id": job_id, "tenant_id": tenant_id},
+            {"$set": {"status": "ARCHIVED", "updated_at": _now_iso()}},
+        )
+        if res.matched_count == 0:
+            return _response(404, {"error": "Application not found."})
+
+    return _response(200, {
+        "application_id": app_id,
+        "status": "ARCHIVED",
+        "message": "Application successfully archived.",
+    })
+
+
+def _delete_tenant_member(event: dict) -> dict:
+    """
+    DELETE /tenants/{tenant_id}/members/{user_sub}  [PROTECTED — requires ADMIN role]
+    Revokes a user's membership in the tenant organization.
+    Guards against revoking the sole remaining administrator.
+    """
+    auth, err = _require_auth(event)
+    if err:
+        return err
+
+    params = event.get("pathParameters") or {}
+    tenant_id = params.get("tenant_id")
+    target_sub = params.get("user_sub")
+    if not tenant_id or not target_sub:
+        return _response(400, {"error": "tenant_id and user_sub path parameters required."})
+
+    with _get_mongo() as client:
+        db = client[MONGODB_DATABASE]
+        membership = require_tenant_access(
+            db["tenant_memberships"], auth, tenant_id, minimum_role="ADMIN"
+        )
+        if not membership:
+            return _response(403, {
+                "error": "You do not have admin access to this tenant.",
+                "code": "FORBIDDEN",
+            })
+
+        target_membership = db["tenant_memberships"].find_one(
+            {"user_sub": target_sub, "tenant_id": tenant_id}
+        )
+        if not target_membership:
+            return _response(404, {"error": "Membership not found."})
+
+        if target_membership.get("role") == "ADMIN":
+            admin_count = db["tenant_memberships"].count_documents(
+                {"tenant_id": tenant_id, "role": "ADMIN"}
+            )
+            if admin_count <= 1:
+                return _response(400, {
+                    "error": "Cannot revoke membership: this user is the sole administrator of the tenant.",
+                    "code": "LAST_ADMIN_PROTECTION",
+                })
+
+        db["tenant_memberships"].delete_one({"user_sub": target_sub, "tenant_id": tenant_id})
+
+    return _response(200, {
+        "tenant_id": tenant_id,
+        "user_sub": target_sub,
+        "message": "Membership revoked successfully.",
+    })
+
+
 # ─── Router ────────────────────────────────────────────────────────────────────
 
 _ROUTES = {
-    ("POST",  "/tenants"):                            _post_tenant,
-    ("POST",  "/tenants/{tenant_id}/jobs"):           _post_job,
-    ("GET",   "/tenants/{tenant_id}/jobs"):           _get_jobs,
-    ("GET",   "/tenants/{tenant_id}/jobs/{job_id}"):  _get_job,
-    ("POST",  "/jobs/{job_id}/applications"):         _post_application,
-    ("POST",  "/jobs/{job_id}/screening"):            _post_screening,
-    ("GET",   "/jobs/{job_id}/screening-results"):    _get_screening_results,
+    # ── Recruiter Workspace (Protected — requires Cognito JWT) ────────────────
+    ("GET",    "/me"):                                             _get_me,
+    ("POST",   "/tenants"):                                        _post_tenant,
+    ("POST",   "/tenants/{tenant_id}/jobs"):                       _post_job,
+    ("GET",    "/tenants/{tenant_id}/jobs"):                       _get_jobs,
+    ("GET",    "/tenants/{tenant_id}/jobs/{job_id}"):              _get_job,
+    ("PATCH",  "/jobs/{job_id}"):                                  _patch_job,
+    ("DELETE", "/jobs/{job_id}"):                                  _delete_job,
+    ("GET",    "/jobs/{job_id}/applications"):                     _get_applications,
+    ("GET",    "/jobs/{job_id}/applications/{application_id}"):    _get_application,
+    ("DELETE", "/jobs/{job_id}/applications/{application_id}"):    _delete_application,
+    ("POST",   "/jobs/{job_id}/screening"):                        _post_screening,
+    ("GET",    "/jobs/{job_id}/screening-results"):                _get_screening_results,
+    ("GET",    "/screening-runs/{screening_run_id}"):              _get_screening_run_by_id,
+    ("GET",    "/tenants/{tenant_id}/members"):                    _get_tenant_members,
+    ("POST",   "/tenants/{tenant_id}/members"):                    _post_tenant_member,
+    ("DELETE", "/tenants/{tenant_id}/members/{user_sub}"):         _delete_tenant_member,
+
+    # ── Candidate Portal (Public — no auth) ────────────────────────────────────
+    ("GET",    "/jobs/{job_id}"):                                  _get_public_job,
+    ("POST",   "/jobs/{job_id}/applications"):                     _post_application,
+    ("GET",    "/jobs/{job_id}/applications/{application_id}/status"): _get_candidate_application_status,
 }
 
 
