@@ -410,7 +410,10 @@ def _post_screening(event: dict) -> dict:
         db = client[MONGODB_DATABASE]
 
         # Resolve job → trusted tenant_id (never from caller)
-        tenant_id = _resolve_job_tenant(db, job_id)
+        job = db["jobs"].find_one({"_id": job_id})
+        if not job:
+            return _response(404, {"error": "Job not found."})
+        tenant_id = job.get("tenant_id")
         if not tenant_id:
             return _response(404, {"error": "Job not found."})
 
@@ -422,6 +425,12 @@ def _post_screening(event: dict) -> dict:
             return _response(403, {
                 "error": "You do not have admin access to this job's tenant.",
                 "code": "FORBIDDEN",
+            })
+
+        if job.get("status") == "ARCHIVED":
+            return _response(409, {
+                "error": "Cannot trigger screening on an archived job.",
+                "code": "JOB_ARCHIVED",
             })
 
         # Guard against duplicate / concurrent active runs
@@ -438,16 +447,18 @@ def _post_screening(event: dict) -> dict:
                 "status": active_run["status"],
             })
 
-        # Guard against premature screening: check for indexed applications
+        # Guard against premature screening: check for indexed applications (excluding archived)
         indexed_count = db["applications"].count_documents({
             "job_id": job_id,
             "tenant_id": tenant_id,
             "phase2_status": "INDEXED",
+            "status": {"$ne": "ARCHIVED"},
         })
         if indexed_count == 0:
             total_count = db["applications"].count_documents({
                 "job_id": job_id,
                 "tenant_id": tenant_id,
+                "status": {"$ne": "ARCHIVED"},
             })
             if total_count == 0:
                 return _response(409, {
@@ -468,7 +479,12 @@ def _post_screening(event: dict) -> dict:
 
         # Fetch the exact list of application IDs eligible for this screening run
         eligible_apps = list(db["applications"].find(
-            {"job_id": job_id, "tenant_id": tenant_id, "phase2_status": "INDEXED"},
+            {
+                "job_id": job_id,
+                "tenant_id": tenant_id,
+                "phase2_status": "INDEXED",
+                "status": {"$ne": "ARCHIVED"},
+            },
             {"_id": 1}
         )) if hasattr(db["applications"], "find") else []
         input_application_ids = [str(app["_id"]) for app in eligible_apps] if eligible_apps else []

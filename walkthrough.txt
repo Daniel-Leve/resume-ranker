@@ -1,42 +1,120 @@
-=== FINAL SAAS TEST WALKTHROUGH ===
+=== AI RESUME SCREENING SAAS — DEPLOYED STACK WALKTHROUGH ===
+Last Deployed: October 13, 2026
+Stack Name: resume-screening-saas
+Region: ap-south-1
+Stage: dev
 
-Since your Tenant and Job are already created in MongoDB, we will start directly from registering the candidate to get the new upload URL.
+-------------------------------------------------------------------------------------
+DEPLOYED CLOUDFORMATION OUTPUTS
+-------------------------------------------------------------------------------------
+API Endpoint:
+  https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev
 
-Copy and paste these blocks into your PowerShell one by one:
+Cognito User Pool ID:
+  ap-south-1_0jQ33OKwk
 
---- STEP 1: GENERATE NEW UPLOAD URL ---
-Run this command to register the candidate and get the new URL (notice it will now hand out an "incoming/" URL under the hood):
+Cognito App Client ID:
+  7cu49634tijn7m70lhekvhuknj
 
-Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/619b93c8-5eac-42b7-aa9d-417a95a9f550/applications" `
+Cognito Hosted UI Base URL:
+  https://cognito-idp.ap-south-1.amazonaws.com/ap-south-1_0jQ33OKwk
+
+Screening SQS Queue:
+  https://sqs.ap-south-1.amazonaws.com/761595200930/resume-screening-dev
+
+Indexing SQS Queue:
+  https://sqs.ap-south-1.amazonaws.com/761595200930/resume-indexing-dev
+
+MongoDB Secret ARN:
+  arn:aws:secretsmanager:ap-south-1:761595200930:secret:/resume-screening/dev/mongodb-uri-iLcOWT
+
+Voyage AI Secret ARN:
+  arn:aws:secretsmanager:ap-south-1:761595200930:secret:/resume-screening/dev/voyage-api-key-CIDQFy
+
+-------------------------------------------------------------------------------------
+END-TO-END VERIFICATION WALKTHROUGH (POWERSHELL)
+-------------------------------------------------------------------------------------
+
+=== PART 1: RECRUITER AUTHENTICATION (COGNITO) ===
+
+Option A: Use AWS CLI to authenticate and get an ID Token:
+$auth = aws cognito-idp initiate-auth `
+  --client-id "7cu49634tijn7m70lhekvhuknj" `
+  --auth-flow "USER_PASSWORD_AUTH" `
+  --auth-parameters USERNAME="YOUR_RECRUITER_EMAIL",PASSWORD="YOUR_PASSWORD" `
+  --region "ap-south-1" | ConvertFrom-Json
+
+$TOKEN = $auth.AuthenticationResult.IdToken
+$AUTH_HEADER = @{"Authorization" = $TOKEN; "Content-Type" = "application/json"}
+
+Verify recruiter identity:
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/me" `
+  -Method GET -Headers $AUTH_HEADER
+
+
+=== PART 2: CREATE TENANT & JOB (RECRUITER) ===
+
+1. Create Tenant:
+$tenant = Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/tenants" `
+  -Method POST -Headers $AUTH_HEADER `
+  -Body '{"name": "Acme Technologies"}'
+
+$TENANT_ID = $tenant.tenant_id
+Write-Host "Created Tenant: $TENANT_ID"
+
+2. Create Job Posting:
+$job = Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/tenants/$TENANT_ID/jobs" `
+  -Method POST -Headers $AUTH_HEADER `
+  -Body '{"title": "Senior Python Backend Engineer", "description": "Looking for Python, FastAPI, AWS SQS, DynamoDB, MongoDB, microservices."}'
+
+$JOB_ID = $job.job_id
+Write-Host "Created Job: $JOB_ID"
+
+
+=== PART 3: CANDIDATE PORTAL (PUBLIC — NO AUTH NEEDED) ===
+
+1. Candidate views public job posting:
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/$JOB_ID" -Method GET
+
+2. Candidate registers and requests presigned upload URL:
+$app = Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/$JOB_ID/applications" `
   -Method POST `
-  -Headers @{"Content-Type"="application/json"} `
+  -Headers @{"Content-Type" = "application/json"} `
   -Body '{"candidate_name": "Daniel Leve"}'
 
-(Copy the long `upload_url` from the output)
+$APP_ID = $app.application_id
+$UPLOAD_URL = $app.upload_url
+Write-Host "Created Application: $APP_ID"
 
-
---- STEP 2: UPLOAD THE RESUME SAFELY ---
-Paste your new long URL between the quotes below to clean it of any hidden newlines, and upload the PDF:
-
-$raw_url = "PASTE_YOUR_NEW_LONG_UPLOAD_URL_HERE"
-$clean_url = $raw_url -replace "\s+", ""
+3. Candidate uploads resume PDF directly to S3 via presigned URL:
+$clean_url = $UPLOAD_URL -replace "\s+", ""
 Invoke-RestMethod -Uri $clean_url -Method PUT -InFile "D:\DANIEL RESUMES\DANIEL_LEVE_UPDATED_7_15.pdf" -ContentType "application/pdf"
 
-
---- STEP 3: WAIT FOR INDEXING ---
-Wait approximately 60 to 90 seconds. 
-What's happening in the background: S3 triggers Textract -> Textract writes JSON -> S3 triggers our IndexingWorker -> IndexingWorker chunks the text, embeds it using Voyage AI, and stores it in MongoDB.
+4. Candidate checks status (public — no recruiter/internal data leaked):
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/$JOB_ID/applications/$APP_ID/status" -Method GET
 
 
---- STEP 4: TRIGGER THE AI SCREENING ---
-Run this to rank the candidates for the job:
+=== PART 4: ASYNC INDEXING & SCREENING PIPELINE ===
 
-Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/619b93c8-5eac-42b7-aa9d-417a95a9f550/screening" -Method POST
+1. Wait ~60 seconds for Textract extraction and Phase 2 IndexingWorker to chunk & embed the resume.
+You can monitor application processing status:
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/$JOB_ID/applications/$APP_ID" `
+  -Method GET -Headers $AUTH_HEADER
 
+(Wait until phase2_status becomes "INDEXED")
 
---- STEP 5: VIEW THE RESULTS ---
-Poll this endpoint to see the final ranked candidates:
+2. Recruiter triggers Phase 2+3+4 AI Screening:
+$screening = Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/$JOB_ID/screening" `
+  -Method POST -Headers $AUTH_HEADER
 
-Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/619b93c8-5eac-42b7-aa9d-417a95a9f550/screening-results" -Method GET
+$RUN_ID = $screening.screening_run_id
+Write-Host "Triggered Screening Run: $RUN_ID"
 
-(Run this a few times until the status changes from QUEUED/RUNNING to COMPLETED. You will see Daniel's resume ranked with the hybrid search and reranking scores!)
+3. Poll screening results:
+Invoke-RestMethod -Uri "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev/jobs/$JOB_ID/screening-results" `
+  -Method GET -Headers $AUTH_HEADER
+
+When status reaches "COMPLETED", the response will include:
+- Reranked candidate scores (Voyage rerank-2.5)
+- Rank changes and hybrid search provenance
+- Phase 4 evidence-grounded explanations with matched resume excerpts and requirement alignment!
