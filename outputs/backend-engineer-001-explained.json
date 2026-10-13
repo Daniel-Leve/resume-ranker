@@ -1,0 +1,1071 @@
+{
+  "job_id": "backend-engineer-001",
+  "phase": "phase4",
+  "explanation_version": "1.0.0",
+  "generator_type": "deterministic",
+  "candidate_count": 5,
+  "candidates": [
+    {
+      "candidate_id": "qwodhqehd",
+      "rerank_rank": 1,
+      "summary": "Ranked #1 by semantic reranking. No retrieved resume chunks were available to evaluate requirement alignment.",
+      "matched_sections": [
+        "experience",
+        "header",
+        "projects",
+        "skills",
+        "summary"
+      ],
+      "supporting_evidence": [],
+      "requirement_alignment": [
+        {
+          "requirement": "We are looking for an experienced Backend Engineer to join our platform engineering team.",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "3+ years of professional Java development experience",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong knowledge of Spring Boot and the Spring Framework ecosystem",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience designing and building RESTful APIs consumed by web and mobile clients",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Solid understanding of microservices architecture and distributed systems",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Proficiency with relational databases: PostgreSQL or MySQL",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience containerising services with Docker",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Familiarity with Kubernetes for deployment and scaling",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong grasp of object-oriented design principles and clean code practices",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience with event-driven architectures: Apache Kafka or RabbitMQ",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Caching: Redis or Memcached",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "API protocols beyond REST: gRPC or GraphQL",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Test-driven development: JUnit 5, Mockito, integration testing",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitoring and observability: Prometheus, Grafana, ELK stack",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Design, implement, and maintain scalable backend services",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Define and document API contracts in collaboration with frontend and mobile teams",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Participate actively in technical design reviews and code reviews",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Write comprehensive unit and integration tests",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitor production service health and respond to incidents",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        }
+      ],
+      "evidence_gaps": [
+        "Requirement 'We are looking for an experienced Backend Engineer to join our platform engineering team.' was not established (no retrieved chunk content available).",
+        "Requirement '3+ years of professional Java development experience' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong knowledge of Spring Boot and the Spring Framework ecosystem' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience designing and building RESTful APIs consumed by web and mobile clients' was not established (no retrieved chunk content available).",
+        "Requirement 'Solid understanding of microservices architecture and distributed systems' was not established (no retrieved chunk content available).",
+        "Requirement 'Proficiency with relational databases: PostgreSQL or MySQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience containerising services with Docker' was not established (no retrieved chunk content available).",
+        "Requirement 'Familiarity with Kubernetes for deployment and scaling' was not established (no retrieved chunk content available).",
+        "Requirement 'Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong grasp of object-oriented design principles and clean code practices' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience with event-driven architectures: Apache Kafka or RabbitMQ' was not established (no retrieved chunk content available).",
+        "Requirement 'Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)' was not established (no retrieved chunk content available).",
+        "Requirement 'Caching: Redis or Memcached' was not established (no retrieved chunk content available).",
+        "Requirement 'API protocols beyond REST: gRPC or GraphQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Test-driven development: JUnit 5, Mockito, integration testing' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitoring and observability: Prometheus, Grafana, ELK stack' was not established (no retrieved chunk content available).",
+        "Requirement 'Design, implement, and maintain scalable backend services' was not established (no retrieved chunk content available).",
+        "Requirement 'Define and document API contracts in collaboration with frontend and mobile teams' was not established (no retrieved chunk content available).",
+        "Requirement 'Participate actively in technical design reviews and code reviews' was not established (no retrieved chunk content available).",
+        "Requirement 'Write comprehensive unit and integration tests' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitor production service health and respond to incidents' was not established (no retrieved chunk content available)."
+      ],
+      "limitations": [
+        "Explanations reflect only the resume chunks retrieved and evaluated in Phases 2 and 3, not the full un-chunked resume or full candidate background.",
+        "Reranker rank reflects overall semantic relevance to the job description, not an isolated sum or arithmetic score of individual requirements.",
+        "Unestablished requirements indicate absence of direct evidence in retrieved resume chunks, not confirmed lack of candidate qualification.",
+        "No protected personal characteristics (e.g. age, gender, ethnicity) are evaluated or utilized in ranking or explainability.",
+        "No chunk texts were available for this candidate; requirement alignment could not be verified."
+      ],
+      "explanation_version": "1.0.0",
+      "rerank_score": 0.789062
+    },
+    {
+      "candidate_id": "yokeshwaran_k_resume-yokeshwaran-k",
+      "rerank_rank": 2,
+      "summary": "Ranked #2 by semantic reranking. No retrieved resume chunks were available to evaluate requirement alignment.",
+      "matched_sections": [
+        "projects",
+        "summary"
+      ],
+      "supporting_evidence": [],
+      "requirement_alignment": [
+        {
+          "requirement": "We are looking for an experienced Backend Engineer to join our platform engineering team.",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "3+ years of professional Java development experience",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong knowledge of Spring Boot and the Spring Framework ecosystem",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience designing and building RESTful APIs consumed by web and mobile clients",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Solid understanding of microservices architecture and distributed systems",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Proficiency with relational databases: PostgreSQL or MySQL",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience containerising services with Docker",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Familiarity with Kubernetes for deployment and scaling",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong grasp of object-oriented design principles and clean code practices",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience with event-driven architectures: Apache Kafka or RabbitMQ",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Caching: Redis or Memcached",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "API protocols beyond REST: gRPC or GraphQL",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Test-driven development: JUnit 5, Mockito, integration testing",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitoring and observability: Prometheus, Grafana, ELK stack",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Design, implement, and maintain scalable backend services",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Define and document API contracts in collaboration with frontend and mobile teams",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Participate actively in technical design reviews and code reviews",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Write comprehensive unit and integration tests",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitor production service health and respond to incidents",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        }
+      ],
+      "evidence_gaps": [
+        "Requirement 'We are looking for an experienced Backend Engineer to join our platform engineering team.' was not established (no retrieved chunk content available).",
+        "Requirement '3+ years of professional Java development experience' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong knowledge of Spring Boot and the Spring Framework ecosystem' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience designing and building RESTful APIs consumed by web and mobile clients' was not established (no retrieved chunk content available).",
+        "Requirement 'Solid understanding of microservices architecture and distributed systems' was not established (no retrieved chunk content available).",
+        "Requirement 'Proficiency with relational databases: PostgreSQL or MySQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience containerising services with Docker' was not established (no retrieved chunk content available).",
+        "Requirement 'Familiarity with Kubernetes for deployment and scaling' was not established (no retrieved chunk content available).",
+        "Requirement 'Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong grasp of object-oriented design principles and clean code practices' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience with event-driven architectures: Apache Kafka or RabbitMQ' was not established (no retrieved chunk content available).",
+        "Requirement 'Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)' was not established (no retrieved chunk content available).",
+        "Requirement 'Caching: Redis or Memcached' was not established (no retrieved chunk content available).",
+        "Requirement 'API protocols beyond REST: gRPC or GraphQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Test-driven development: JUnit 5, Mockito, integration testing' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitoring and observability: Prometheus, Grafana, ELK stack' was not established (no retrieved chunk content available).",
+        "Requirement 'Design, implement, and maintain scalable backend services' was not established (no retrieved chunk content available).",
+        "Requirement 'Define and document API contracts in collaboration with frontend and mobile teams' was not established (no retrieved chunk content available).",
+        "Requirement 'Participate actively in technical design reviews and code reviews' was not established (no retrieved chunk content available).",
+        "Requirement 'Write comprehensive unit and integration tests' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitor production service health and respond to incidents' was not established (no retrieved chunk content available)."
+      ],
+      "limitations": [
+        "Explanations reflect only the resume chunks retrieved and evaluated in Phases 2 and 3, not the full un-chunked resume or full candidate background.",
+        "Reranker rank reflects overall semantic relevance to the job description, not an isolated sum or arithmetic score of individual requirements.",
+        "Unestablished requirements indicate absence of direct evidence in retrieved resume chunks, not confirmed lack of candidate qualification.",
+        "No protected personal characteristics (e.g. age, gender, ethnicity) are evaluated or utilized in ranking or explainability.",
+        "No chunk texts were available for this candidate; requirement alignment could not be verified."
+      ],
+      "explanation_version": "1.0.0",
+      "rerank_score": 0.519531
+    },
+    {
+      "candidate_id": "ganeshs",
+      "rerank_rank": 3,
+      "summary": "Ranked #3 by semantic reranking. No retrieved resume chunks were available to evaluate requirement alignment.",
+      "matched_sections": [
+        "projects"
+      ],
+      "supporting_evidence": [],
+      "requirement_alignment": [
+        {
+          "requirement": "We are looking for an experienced Backend Engineer to join our platform engineering team.",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "3+ years of professional Java development experience",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong knowledge of Spring Boot and the Spring Framework ecosystem",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience designing and building RESTful APIs consumed by web and mobile clients",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Solid understanding of microservices architecture and distributed systems",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Proficiency with relational databases: PostgreSQL or MySQL",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience containerising services with Docker",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Familiarity with Kubernetes for deployment and scaling",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong grasp of object-oriented design principles and clean code practices",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience with event-driven architectures: Apache Kafka or RabbitMQ",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Caching: Redis or Memcached",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "API protocols beyond REST: gRPC or GraphQL",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Test-driven development: JUnit 5, Mockito, integration testing",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitoring and observability: Prometheus, Grafana, ELK stack",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Design, implement, and maintain scalable backend services",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Define and document API contracts in collaboration with frontend and mobile teams",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Participate actively in technical design reviews and code reviews",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Write comprehensive unit and integration tests",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitor production service health and respond to incidents",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        }
+      ],
+      "evidence_gaps": [
+        "Requirement 'We are looking for an experienced Backend Engineer to join our platform engineering team.' was not established (no retrieved chunk content available).",
+        "Requirement '3+ years of professional Java development experience' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong knowledge of Spring Boot and the Spring Framework ecosystem' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience designing and building RESTful APIs consumed by web and mobile clients' was not established (no retrieved chunk content available).",
+        "Requirement 'Solid understanding of microservices architecture and distributed systems' was not established (no retrieved chunk content available).",
+        "Requirement 'Proficiency with relational databases: PostgreSQL or MySQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience containerising services with Docker' was not established (no retrieved chunk content available).",
+        "Requirement 'Familiarity with Kubernetes for deployment and scaling' was not established (no retrieved chunk content available).",
+        "Requirement 'Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong grasp of object-oriented design principles and clean code practices' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience with event-driven architectures: Apache Kafka or RabbitMQ' was not established (no retrieved chunk content available).",
+        "Requirement 'Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)' was not established (no retrieved chunk content available).",
+        "Requirement 'Caching: Redis or Memcached' was not established (no retrieved chunk content available).",
+        "Requirement 'API protocols beyond REST: gRPC or GraphQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Test-driven development: JUnit 5, Mockito, integration testing' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitoring and observability: Prometheus, Grafana, ELK stack' was not established (no retrieved chunk content available).",
+        "Requirement 'Design, implement, and maintain scalable backend services' was not established (no retrieved chunk content available).",
+        "Requirement 'Define and document API contracts in collaboration with frontend and mobile teams' was not established (no retrieved chunk content available).",
+        "Requirement 'Participate actively in technical design reviews and code reviews' was not established (no retrieved chunk content available).",
+        "Requirement 'Write comprehensive unit and integration tests' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitor production service health and respond to incidents' was not established (no retrieved chunk content available)."
+      ],
+      "limitations": [
+        "Explanations reflect only the resume chunks retrieved and evaluated in Phases 2 and 3, not the full un-chunked resume or full candidate background.",
+        "Reranker rank reflects overall semantic relevance to the job description, not an isolated sum or arithmetic score of individual requirements.",
+        "Unestablished requirements indicate absence of direct evidence in retrieved resume chunks, not confirmed lack of candidate qualification.",
+        "No protected personal characteristics (e.g. age, gender, ethnicity) are evaluated or utilized in ranking or explainability.",
+        "No chunk texts were available for this candidate; requirement alignment could not be verified."
+      ],
+      "explanation_version": "1.0.0",
+      "rerank_score": 0.507812
+    },
+    {
+      "candidate_id": "resume-sns",
+      "rerank_rank": 4,
+      "summary": "Ranked #4 by semantic reranking. No retrieved resume chunks were available to evaluate requirement alignment.",
+      "matched_sections": [
+        "header",
+        "projects",
+        "skills"
+      ],
+      "supporting_evidence": [],
+      "requirement_alignment": [
+        {
+          "requirement": "We are looking for an experienced Backend Engineer to join our platform engineering team.",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "3+ years of professional Java development experience",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong knowledge of Spring Boot and the Spring Framework ecosystem",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience designing and building RESTful APIs consumed by web and mobile clients",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Solid understanding of microservices architecture and distributed systems",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Proficiency with relational databases: PostgreSQL or MySQL",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience containerising services with Docker",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Familiarity with Kubernetes for deployment and scaling",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong grasp of object-oriented design principles and clean code practices",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience with event-driven architectures: Apache Kafka or RabbitMQ",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Caching: Redis or Memcached",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "API protocols beyond REST: gRPC or GraphQL",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Test-driven development: JUnit 5, Mockito, integration testing",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitoring and observability: Prometheus, Grafana, ELK stack",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Design, implement, and maintain scalable backend services",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Define and document API contracts in collaboration with frontend and mobile teams",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Participate actively in technical design reviews and code reviews",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Write comprehensive unit and integration tests",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitor production service health and respond to incidents",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        }
+      ],
+      "evidence_gaps": [
+        "Requirement 'We are looking for an experienced Backend Engineer to join our platform engineering team.' was not established (no retrieved chunk content available).",
+        "Requirement '3+ years of professional Java development experience' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong knowledge of Spring Boot and the Spring Framework ecosystem' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience designing and building RESTful APIs consumed by web and mobile clients' was not established (no retrieved chunk content available).",
+        "Requirement 'Solid understanding of microservices architecture and distributed systems' was not established (no retrieved chunk content available).",
+        "Requirement 'Proficiency with relational databases: PostgreSQL or MySQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience containerising services with Docker' was not established (no retrieved chunk content available).",
+        "Requirement 'Familiarity with Kubernetes for deployment and scaling' was not established (no retrieved chunk content available).",
+        "Requirement 'Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong grasp of object-oriented design principles and clean code practices' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience with event-driven architectures: Apache Kafka or RabbitMQ' was not established (no retrieved chunk content available).",
+        "Requirement 'Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)' was not established (no retrieved chunk content available).",
+        "Requirement 'Caching: Redis or Memcached' was not established (no retrieved chunk content available).",
+        "Requirement 'API protocols beyond REST: gRPC or GraphQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Test-driven development: JUnit 5, Mockito, integration testing' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitoring and observability: Prometheus, Grafana, ELK stack' was not established (no retrieved chunk content available).",
+        "Requirement 'Design, implement, and maintain scalable backend services' was not established (no retrieved chunk content available).",
+        "Requirement 'Define and document API contracts in collaboration with frontend and mobile teams' was not established (no retrieved chunk content available).",
+        "Requirement 'Participate actively in technical design reviews and code reviews' was not established (no retrieved chunk content available).",
+        "Requirement 'Write comprehensive unit and integration tests' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitor production service health and respond to incidents' was not established (no retrieved chunk content available)."
+      ],
+      "limitations": [
+        "Explanations reflect only the resume chunks retrieved and evaluated in Phases 2 and 3, not the full un-chunked resume or full candidate background.",
+        "Reranker rank reflects overall semantic relevance to the job description, not an isolated sum or arithmetic score of individual requirements.",
+        "Unestablished requirements indicate absence of direct evidence in retrieved resume chunks, not confirmed lack of candidate qualification.",
+        "No protected personal characteristics (e.g. age, gender, ethnicity) are evaluated or utilized in ranking or explainability.",
+        "No chunk texts were available for this candidate; requirement alignment could not be verified."
+      ],
+      "explanation_version": "1.0.0",
+      "rerank_score": 0.5
+    },
+    {
+      "candidate_id": "daniel_leve_updated_7_15-retry2",
+      "rerank_rank": 5,
+      "summary": "Ranked #5 by semantic reranking. No retrieved resume chunks were available to evaluate requirement alignment.",
+      "matched_sections": [
+        "skills"
+      ],
+      "supporting_evidence": [],
+      "requirement_alignment": [
+        {
+          "requirement": "We are looking for an experienced Backend Engineer to join our platform engineering team.",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "3+ years of professional Java development experience",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong knowledge of Spring Boot and the Spring Framework ecosystem",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience designing and building RESTful APIs consumed by web and mobile clients",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Solid understanding of microservices architecture and distributed systems",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Proficiency with relational databases: PostgreSQL or MySQL",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience containerising services with Docker",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Familiarity with Kubernetes for deployment and scaling",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Strong grasp of object-oriented design principles and clean code practices",
+          "category": "required",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Experience with event-driven architectures: Apache Kafka or RabbitMQ",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Caching: Redis or Memcached",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "API protocols beyond REST: gRPC or GraphQL",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Test-driven development: JUnit 5, Mockito, integration testing",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitoring and observability: Prometheus, Grafana, ELK stack",
+          "category": "preferred",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Design, implement, and maintain scalable backend services",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Define and document API contracts in collaboration with frontend and mobile teams",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Participate actively in technical design reviews and code reviews",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Write comprehensive unit and integration tests",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        },
+        {
+          "requirement": "Monitor production service health and respond to incidents",
+          "category": "general",
+          "status": "not_established",
+          "supporting_chunks": [],
+          "evidence_excerpts": [],
+          "rationale": "No candidate resume chunks were found to verify this requirement."
+        }
+      ],
+      "evidence_gaps": [
+        "Requirement 'We are looking for an experienced Backend Engineer to join our platform engineering team.' was not established (no retrieved chunk content available).",
+        "Requirement '3+ years of professional Java development experience' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong knowledge of Spring Boot and the Spring Framework ecosystem' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience designing and building RESTful APIs consumed by web and mobile clients' was not established (no retrieved chunk content available).",
+        "Requirement 'Solid understanding of microservices architecture and distributed systems' was not established (no retrieved chunk content available).",
+        "Requirement 'Proficiency with relational databases: PostgreSQL or MySQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience containerising services with Docker' was not established (no retrieved chunk content available).",
+        "Requirement 'Familiarity with Kubernetes for deployment and scaling' was not established (no retrieved chunk content available).",
+        "Requirement 'Understanding of CI/CD pipelines (Jenkins, GitHub Actions, or similar)' was not established (no retrieved chunk content available).",
+        "Requirement 'Strong grasp of object-oriented design principles and clean code practices' was not established (no retrieved chunk content available).",
+        "Requirement 'Experience with event-driven architectures: Apache Kafka or RabbitMQ' was not established (no retrieved chunk content available).",
+        "Requirement 'Cloud platform experience: AWS (EC2, ECS, RDS, S3, SQS)' was not established (no retrieved chunk content available).",
+        "Requirement 'Caching: Redis or Memcached' was not established (no retrieved chunk content available).",
+        "Requirement 'API protocols beyond REST: gRPC or GraphQL' was not established (no retrieved chunk content available).",
+        "Requirement 'Test-driven development: JUnit 5, Mockito, integration testing' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitoring and observability: Prometheus, Grafana, ELK stack' was not established (no retrieved chunk content available).",
+        "Requirement 'Design, implement, and maintain scalable backend services' was not established (no retrieved chunk content available).",
+        "Requirement 'Define and document API contracts in collaboration with frontend and mobile teams' was not established (no retrieved chunk content available).",
+        "Requirement 'Participate actively in technical design reviews and code reviews' was not established (no retrieved chunk content available).",
+        "Requirement 'Write comprehensive unit and integration tests' was not established (no retrieved chunk content available).",
+        "Requirement 'Monitor production service health and respond to incidents' was not established (no retrieved chunk content available)."
+      ],
+      "limitations": [
+        "Explanations reflect only the resume chunks retrieved and evaluated in Phases 2 and 3, not the full un-chunked resume or full candidate background.",
+        "Reranker rank reflects overall semantic relevance to the job description, not an isolated sum or arithmetic score of individual requirements.",
+        "Unestablished requirements indicate absence of direct evidence in retrieved resume chunks, not confirmed lack of candidate qualification.",
+        "No protected personal characteristics (e.g. age, gender, ethnicity) are evaluated or utilized in ranking or explainability.",
+        "No chunk texts were available for this candidate; requirement alignment could not be verified."
+      ],
+      "explanation_version": "1.0.0",
+      "rerank_score": 0.486328
+    }
+  ]
+}
