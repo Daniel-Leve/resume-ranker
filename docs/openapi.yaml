@@ -435,6 +435,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Job details for recruiter workspace.
           content:
             application/json:
               schema:
@@ -583,6 +584,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Recruiter detail view of applicant and resume versions.
           content:
             application/json:
               schema:
@@ -628,6 +630,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Public applicant processing status.
           content:
             application/json:
               schema:
@@ -667,6 +670,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Latest completed screening run results.
           content:
             application/json:
               schema:
@@ -686,6 +690,7 @@ paths:
             type: string
       responses:
         '200':
+          description: Screening run details.
           content:
             application/json:
               schema:
@@ -760,3 +765,208 @@ paths:
           description: Forbidden (requires ADMIN role).
         '404':
           description: Membership not found.
+
+  /jobs/{job_id}/rubric:
+    post:
+      summary: Build or Draft Job Rubric
+      description: Generates an AI-powered 4-8 criteria evaluation rubric from the job description with status DRAFT. Requires recruiter auth.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Draft rubric generated successfully.
+        '404':
+          description: Job not found.
+    get:
+      summary: Get Job Rubric
+      description: Returns the current draft or approved rubric for a job.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current job rubric.
+        '404':
+          description: Rubric not found.
+
+  /jobs/{job_id}/rubric/approve:
+    post:
+      summary: Approve Job Rubric
+      description: Locks the job rubric into APPROVED status with optional custom criteria adjustments. Required before screening evaluation can proceed.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                criteria:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: Rubric approved successfully.
+        '400':
+          description: Invalid criteria payload or approval error.
+        '404':
+          description: Job not found.
+
+  /jobs/{job_id}/screening-status:
+    get:
+      summary: Get Live Screening & Budget Status Dashboard
+      description: Returns live metrics including shortlisted count, evaluated candidates, daily Groq budget status, and pending human review queue count.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Live screening dashboard status.
+        '404':
+          description: Job not found.
+
+  /jobs/{job_id}/candidates/{candidate_id}/report:
+    get:
+      summary: Get HR Candidate Shortlist Report
+      description: Returns the comprehensive HR shortlist report containing match matrix, strengths, gaps, risks, and 3-5 targeted interview questions.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Candidate HR report.
+        '404':
+          description: Report not found.
+
+  /jobs/{job_id}/review-queue:
+    get:
+      summary: List Human Review Queue Items
+      description: Lists candidate applications flagged for human recruiter review (e.g. false negative risk, poor parse quality, unverified quotes).
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            default: NEEDS_REVIEW
+      responses:
+        '200':
+          description: Review queue items.
+
+  /jobs/{job_id}/review-queue/{candidate_id}/action:
+    post:
+      summary: Resolve Human Review Item
+      description: Resolves a flagged candidate with an action (promote, confirm_reject, fix_rubric) and records the decision in labeled training history.
+      security:
+        - CognitoAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: candidate_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum: [promote, confirm_reject, fix_rubric]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Review item resolved successfully.
+        '400':
+          description: Invalid action parameter.
+        '404':
+          description: Candidate not found in review queue.
+
+  /jobs/{job_id}/applications/{application_id}/feedback:
+    get:
+      summary: Get Candidate Constructive Feedback
+      description: Candidate-facing feedback detailing must-have skill gaps and positive resume signals with zero exposure of ranks or scores. Requires candidate access token (X-Application-Token header or token query parameter) or recruiter Cognito JWT.
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: application_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: X-Application-Token
+          in: header
+          required: false
+          description: Secure token generated on application creation.
+          schema:
+            type: string
+        - name: token
+          in: query
+          required: false
+          description: Alternative candidate access token via query string.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Candidate constructive feedback or shortlisted status.
+        '401':
+          description: Missing candidate access token or recruiter credentials.
+        '403':
+          description: Invalid candidate access token.
+        '404':
+          description: Application not found or feedback not generated.
+        '409':
+          description: Application evaluation is still underway (decision pending).

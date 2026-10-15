@@ -1,0 +1,61 @@
+{
+  "candidate_id": "cand-01",
+  "application_id": null,
+  "candidate_name": "Alice Developer",
+  "job_id": "backend-engineer-001",
+  "rerank_rank": 1,
+  "rerank_score": 0.95,
+  "match_matrix": [
+    {
+      "criterion_id": "c1",
+      "description": "3+ years of Python backend engineering with FastAPI or Django",
+      "type": "must",
+      "weight": 0.5,
+      "status": "met",
+      "quotes": [
+        "5 years Python lead"
+      ],
+      "sections": [
+        "Exp"
+      ]
+    },
+    {
+      "criterion_id": "c2",
+      "description": "Hands-on experience with MongoDB or distributed databases",
+      "type": "must",
+      "weight": 0.3,
+      "status": "met",
+      "quotes": [
+        "Engineered MongoDB clusters"
+      ],
+      "sections": [
+        "Exp"
+      ]
+    },
+    {
+      "criterion_id": "c3",
+      "description": "Experience with AWS Lambda, SQS, or serverless architectures",
+      "type": "nice",
+      "weight": 0.2,
+      "status": "met",
+      "quotes": [
+        "Deployed with AWS Lambda"
+      ],
+      "sections": [
+        "Exp"
+      ]
+    }
+  ],
+  "strengths": [
+    "[C1] 3+ years of Python backend engineering with FastAPI or Django (e.g. \"5 years Python lead...\")",
+    "[C2] Hands-on experience with MongoDB or distributed databases (e.g. \"Engineered MongoDB clusters...\")",
+    "[C3] Experience with AWS Lambda, SQS, or serverless architectures (e.g. \"Deployed with AWS Lambda...\")"
+  ],
+  "gaps": [],
+  "risks": [],
+  "interview_questions": [
+    "Tell us about an architectural decision or trade-off you had to make in a recent technical project.",
+    "How do you typically approach automated testing, debugging, and deployment in production?"
+  ],
+  "generated_at": "2026-10-15T05:32:20.373407+00:00"
+}

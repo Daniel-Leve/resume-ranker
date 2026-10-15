@@ -388,6 +388,63 @@ Resources:
             Method: DELETE
             Auth:
               Authorizer: CognitoAuthorizer
+        # ── Phase 4: Rubric, Explainability & Review Queue (Protected) ──────
+        PostJobRubric:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/rubric
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetJobRubric:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/rubric
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        PostApproveRubric:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/rubric/approve
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetScreeningStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/screening-status
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetCandidateReport:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/candidates/{candidate_id}/report
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        GetReviewQueue:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/review-queue
+            Method: GET
+            Auth:
+              Authorizer: CognitoAuthorizer
+        PostReviewQueueAction:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/review-queue/{candidate_id}/action
+            Method: POST
+            Auth:
+              Authorizer: CognitoAuthorizer
         # ── Public routes (no auth — candidate facing) ──────────────────────
         GetPublicJob:
           Type: Api
@@ -406,6 +463,12 @@ Resources:
           Properties:
             RestApiId: !Ref ResumeScreeningApi
             Path: /jobs/{job_id}/applications/{application_id}/status
+            Method: GET
+        GetApplicationFeedback:
+          Type: Api
+          Properties:
+            RestApiId: !Ref ResumeScreeningApi
+            Path: /jobs/{job_id}/applications/{application_id}/feedback
             Method: GET
 
   # ── Cognito Post-Confirmation Worker ─────────────────────────────────────────

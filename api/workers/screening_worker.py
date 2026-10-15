@@ -74,7 +74,12 @@ def _update_run_status(db, run_id: str, status: str, update: dict = None) -> Non
     db["screening_runs"].update_one({"_id": run_id}, {"$set": payload})
 
 
-def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
+def _run_screening(
+    screening_run_id: str,
+    tenant_id: str,
+    job_id: str,
+    final_shortlisted_candidates_count: Optional[int] = None,
+) -> None:
     """Execute Phase 2+3 screening pipeline and persist results."""
     if not screening_run_id or not str(screening_run_id).strip():
         raise ValueError("screening_run_id is required and cannot be empty")
@@ -103,23 +108,79 @@ def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
         logger.info("Screening run %s already marked COMPLETED — skipping re-execution.", screening_run_id)
         return
 
+    # Resolve HR specified final shortlisted candidate count
+    shortlisted_count = None
+    if final_shortlisted_candidates_count is not None:
+        try:
+            val = int(final_shortlisted_candidates_count)
+            if val > 0:
+                shortlisted_count = val
+        except (ValueError, TypeError):
+            pass
+
+    if shortlisted_count is None and existing_run:
+        val = existing_run.get("final_shortlisted_candidates_count") or existing_run.get("shortlisted_candidates_count")
+        if val is not None:
+            try:
+                shortlisted_count = max(1, int(val))
+            except (ValueError, TypeError):
+                pass
+
+    if shortlisted_count is None:
+        job = db["jobs"].find_one({"_id": job_id, "tenant_id": tenant_id})
+        if job:
+            val = job.get("final_shortlisted_candidates_count") or job.get("shortlisted_candidates_count")
+            if val is not None:
+                try:
+                    shortlisted_count = max(1, int(val))
+                except (ValueError, TypeError):
+                    pass
+
+    if shortlisted_count is None or shortlisted_count <= 0:
+        shortlisted_count = 5  # default if not specified by HR
+
     try:
         _update_run_status(db, screening_run_id, "RUNNING_PHASE2",
-                           {"phase2_status": "RUNNING"})
+                           {"phase2_status": "RUNNING", "final_shortlisted_candidates_count": shortlisted_count})
 
         # ── Load Job Description ───────────────────────────────────────────
         jd_text = _get_job_description(db, job_id, tenant_id)
         if not jd_text:
             raise ValueError(f"Job description not found for job_id={job_id} and tenant_id={tenant_id}")
 
-        # ── Phase 2: Embed JD ──────────────────────────────────────────────
+        # ── Phase 2: Embed JD ──────────────────────────────────────
         logger.info("Embedding job description...")
         jd_embedding = embed_texts([jd_text], input_type="query")[0]
 
-        # ── Phase 2: Hybrid Retrieval ──────────────────────────────────────
-        lex_k = config.LEXICAL_TOP_K
-        vec_k = config.VECTOR_TOP_K
-        final_k = config.FINAL_TOP_K
+        # ── Phase 2: Dynamic Hybrid Retrieval (no hard truncation) ─────────
+        # Automatically reduce candidate pool from Phase 2 hybrid search.
+        # Use an expansion factor (3x of HR shortlisted count, min 10) so Phase 3 reranker has sufficient recall.
+        total_eligible = 0
+        try:
+            if hasattr(db["applications"], "count_documents"):
+                cnt = db["applications"].count_documents({
+                    "job_id": job_id,
+                    "tenant_id": tenant_id,
+                    "phase2_status": "INDEXED",
+                    "status": {"$ne": "ARCHIVED"},
+                })
+                if isinstance(cnt, int) and cnt > 0:
+                    total_eligible = cnt
+        except Exception:
+            total_eligible = 0
+
+        phase2_pool_target = max(shortlisted_count * 3, 10)
+        if total_eligible > 0:
+            phase2_pool_target = min(phase2_pool_target, total_eligible)
+
+        lex_k = max(phase2_pool_target * 2, 20)
+        vec_k = max(phase2_pool_target * 2, 20)
+        final_k = phase2_pool_target
+
+        logger.info(
+            "Phase 2 retrieval: target_shortlisted=%d, total_eligible=%d → phase2_pool=%d (lex_k=%d, vec_k=%d)",
+            shortlisted_count, total_eligible, final_k, lex_k, vec_k
+        )
 
         logger.info("Running BM25 (top_k=%d)...", lex_k)
         lex_hits = lexical_search(
@@ -134,7 +195,7 @@ def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
         )
 
         fused = fuse_results(lex_hits, vec_hits, final_top_k=final_k, rrf_k=config.RRF_K)
-        logger.info("Phase 2 complete: %d unique candidates.", len(fused))
+        logger.info("Phase 2 complete: %d unique candidates passed to Phase 3 reranker.", len(fused))
 
         _update_run_status(db, screening_run_id, "RUNNING_PHASE3", {
             "phase2_status": "COMPLETED",
@@ -237,36 +298,24 @@ def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
         elapsed = round(time.time() - start_time, 2)
         logger.info("Phase 3 complete: %d candidates reranked in %.1fs.", len(final_candidates), elapsed)
 
-        # ── Phase 4: Evidence-Grounded Ranking Explanations ───────────────
-        p4_status = "NOT_STARTED"
-        p4_error = None
-        try:
-            from phase4.explainer import enrich_screening_candidates_with_explanations
-            final_candidates = enrich_screening_candidates_with_explanations(
-                candidates=final_candidates,
-                job_description=jd_text,
-                collection=collection,
-                tenant_id=tenant_id,
-                job_id=job_id,
-            )
-            p4_status = "COMPLETED"
-            logger.info("Phase 4 explainability attached for %d candidates.", len(final_candidates))
-        except Exception as p4_err:
-            p4_status = "FAILED"
-            p4_error = str(p4_err)
-            logger.warning("Phase 4 explainability generation skipped/failed: %s", p4_err)
+        # Output exactly the HR-specified final shortlisted candidate count of candidates alone
+        top_candidates = final_candidates[:shortlisted_count]
+        logger.info(
+            "Phase 3 selection: outputting exactly %d top candidate(s) (HR requested count: %d).",
+            len(top_candidates), shortlisted_count,
+        )
 
-        # ── Persist results in MongoDB ─────────────────────────────────────
+        # ── Persist results in MongoDB (Phase 4 explainability omitted per user instruction) ─
         status_payload = {
             "phase3_status": "COMPLETED",
-            "phase4_status": p4_status,
-            "candidates": final_candidates,
-            "candidate_count": len(final_candidates),
+            "phase4_status": "NOT_STARTED",
+            "candidates": top_candidates,
+            "candidate_count": len(top_candidates),
+            "final_shortlisted_candidates_count": shortlisted_count,
+            "phase2_candidate_count": len(fused),
             "processing_time_sec": elapsed,
             "completed_at": _now_iso(),
         }
-        if p4_error:
-            status_payload["phase4_error"] = p4_error
 
         _update_run_status(db, screening_run_id, "COMPLETED", status_payload)
 
@@ -284,7 +333,9 @@ def _run_screening(screening_run_id: str, tenant_id: str, job_id: str) -> None:
                 "tenant_id": tenant_id,
                 "job_id": job_id,
                 "phase": "phase3",
-                "candidates": final_candidates,
+                "final_shortlisted_candidates_count": shortlisted_count,
+                "candidate_count": len(top_candidates),
+                "candidates": top_candidates,
             }, indent=2).encode("utf-8"),
             ContentType="application/json",
         )
@@ -307,10 +358,14 @@ def lambda_handler(event: dict, context: object) -> dict:
         message_id = record.get("messageId", "?")
         try:
             body = json.loads(record["body"])
+            kwargs = {}
+            if "final_shortlisted_candidates_count" in body:
+                kwargs["final_shortlisted_candidates_count"] = body["final_shortlisted_candidates_count"]
             _run_screening(
                 screening_run_id=body["screening_run_id"],
                 tenant_id=body["tenant_id"],
                 job_id=body["job_id"],
+                **kwargs,
             )
         except Exception as exc:
             logger.error("Screening failed for message %s: %s", message_id, exc)

@@ -397,12 +397,9 @@ class TestEndToEndScreeningPipeline:
             assert candidate["rerank_score"] == 0.96
             assert candidate["candidate_name"] == "Alice Cooper"
             assert candidate["application_id"] == app_id
-            # Phase 4 explainability fields present
-            assert "explanation" in candidate
-            assert "summary" in candidate["explanation"]
-            assert "supporting_evidence" in candidate["explanation"]
-            assert "requirement_alignment" in candidate["explanation"]
-            assert "limitations" in candidate["explanation"]
+            # Phase 3 ranking verified; Phase 4 explainability paused until explicitly requested
+            assert results.get("phase4_status") == "NOT_STARTED"
+            assert candidate["source_key"] is not None
 
         # 10. Recruiter views screening run by run ID
         with patch("api.handlers.application_handler._get_mongo", return_value=mock_client):
@@ -767,7 +764,18 @@ class TestReliabilityAndErrorHandling:
             matched_chunks={"c1": "Skills"},
             source_key="s3://key",
         )
-        mock_rerank = [{"index": 0, "relevance_score": 0.85}]
+        mock_prov_2 = CandidateProvenance(
+            candidate_id="alice",
+            rrf_score=0.8,
+            lexical_rank=2,
+            vector_rank=2,
+            matched_chunks={"c2": "Skills"},
+            source_key="s3://key2",
+        )
+        mock_rerank = [
+            {"index": 0, "relevance_score": 0.95},
+            {"index": 1, "relevance_score": 0.85},
+        ]
 
         mock_doc = ReconstructedDocument(
             candidate_id="bob",
@@ -778,23 +786,25 @@ class TestReliabilityAndErrorHandling:
 
         with patch("api.workers.screening_worker._get_mongo", return_value=mock_client):
             with patch("api.workers.screening_worker.embed_texts", return_value=[[0.1] * 1024]):
-                with patch("api.workers.screening_worker.lexical_search", return_value=[mock_prov]):
-                    with patch("api.workers.screening_worker.vector_search", return_value=[mock_prov]):
-                        with patch("api.workers.screening_worker.fuse_results", return_value=[mock_prov]):
+                with patch("api.workers.screening_worker.lexical_search", return_value=[mock_prov, mock_prov_2]):
+                    with patch("api.workers.screening_worker.vector_search", return_value=[mock_prov, mock_prov_2]):
+                        with patch("api.workers.screening_worker.fuse_results", return_value=[mock_prov, mock_prov_2]):
                             with patch("api.workers.screening_worker.build_candidate_document", return_value=mock_doc):
                                 with patch("api.workers.screening_worker.rerank_documents", return_value=mock_rerank):
-                                    with patch("phase4.explainer.enrich_screening_candidates_with_explanations", side_effect=RuntimeError("AI API Timeout")):
-                                        with patch("boto3.client") as mock_boto:
-                                            mock_boto.return_value = MagicMock()
-                                            _run_screening("run-p4-fail", "tenant-1", "job-1")
+                                    with patch("boto3.client") as mock_boto:
+                                        mock_boto.return_value = MagicMock()
+                                        # Request exactly 1 shortlisted candidate
+                                        _run_screening("run-p4-fail", "tenant-1", "job-1", final_shortlisted_candidates_count=1)
 
         run_doc = collections["screening_runs"].find_one({"_id": "run-p4-fail"})
         assert run_doc["status"] == "COMPLETED"
         assert run_doc["phase3_status"] == "COMPLETED"
-        assert run_doc["phase4_status"] == "FAILED"
-        assert "AI API Timeout" in run_doc["phase4_error"]
+        assert run_doc["phase4_status"] == "NOT_STARTED"
+        assert run_doc["candidate_count"] == 1
         assert len(run_doc["candidates"]) == 1
         assert run_doc["candidates"][0]["rerank_rank"] == 1
+        assert run_doc["final_shortlisted_candidates_count"] == 1
+        assert run_doc["phase2_candidate_count"] == 2
 
 
 # ── TEST SUITE 5: Specification & Route Parity Verification ────────────────────
@@ -807,10 +817,10 @@ class TestOpenApiAndTemplateParity:
     3. docs/openapi.yaml (OpenAPI 3.0.3 paths and methods)
     """
 
-    def test_router_has_exact_19_operations(self):
-        assert len(_ROUTES) == 19, f"Expected 19 registered route operations in router, found {len(_ROUTES)}"
+    def test_router_has_exact_27_operations(self):
+        assert len(_ROUTES) == 27, f"Expected 27 registered route operations in router, found {len(_ROUTES)}"
 
-    def test_openapi_has_exact_19_operations_across_13_paths(self):
+    def test_openapi_has_exact_27_operations_across_20_paths(self):
         openapi_path = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "openapi.yaml")
         assert os.path.isfile(openapi_path), f"OpenAPI file not found at {openapi_path}"
 
@@ -818,7 +828,7 @@ class TestOpenApiAndTemplateParity:
             spec = yaml.safe_load(f)
 
         paths = spec.get("paths", {})
-        assert len(paths) == 13, f"Expected 13 unique paths in docs/openapi.yaml, found {len(paths)}"
+        assert len(paths) == 20, f"Expected 20 unique paths in docs/openapi.yaml, found {len(paths)}"
 
         openapi_operations = set()
         for path_name, methods in paths.items():
@@ -826,8 +836,8 @@ class TestOpenApiAndTemplateParity:
                 if method.lower() in ["get", "post", "patch", "delete", "put"]:
                     openapi_operations.add((method.upper(), path_name))
 
-        assert len(openapi_operations) == 19, (
-            f"Expected 19 total operations in docs/openapi.yaml, found {len(openapi_operations)}: {openapi_operations}"
+        assert len(openapi_operations) == 27, (
+            f"Expected 27 total operations in docs/openapi.yaml, found {len(openapi_operations)}: {openapi_operations}"
         )
 
         router_operations = set(_ROUTES.keys())
@@ -837,7 +847,7 @@ class TestOpenApiAndTemplateParity:
             f"In Router only: {router_operations - openapi_operations}"
         )
 
-    def test_sam_template_has_exact_19_api_events(self):
+    def test_sam_template_has_exact_27_api_events(self):
         template_path = os.path.join(os.path.dirname(__file__), "..", "..", "template.yaml")
         assert os.path.isfile(template_path), f"template.yaml not found at {template_path}"
 
@@ -854,8 +864,8 @@ class TestOpenApiAndTemplateParity:
         )
         parsed_events = set((method.upper(), path) for path, method in api_events)
 
-        assert len(parsed_events) == 19, (
-            f"Expected 19 API events in template.yaml, found {len(parsed_events)}: {parsed_events}"
+        assert len(parsed_events) == 27, (
+            f"Expected 27 API events in template.yaml, found {len(parsed_events)}: {parsed_events}"
         )
 
         router_operations = set(_ROUTES.keys())
