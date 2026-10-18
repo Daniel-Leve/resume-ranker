@@ -2,119 +2,1764 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SaaS Frontend Integration Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Screening SaaS — End-to-End Test Portal</title>
+    <!-- Amazon Cognito Identity JS for browser SRP authentication -->
+    <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js"></script>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; background: #f9f9f9; color: #333; }
-        .step { background: white; border: 1px solid #ddd; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        button { padding: 10px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-weight: bold; }
-        button:hover { background: #0056b3; }
-        pre { background: #282c34; color: #abb2bf; padding: 15px; overflow-x: auto; border-radius: 4px; font-size: 14px; }
-        h1 { text-align: center; color: #2c3e50; }
-        input[type="file"] { margin-right: 15px; }
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --secondary: #64748b;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #d97706;
+            --bg: #0f172a;
+            --card-bg: #ffffff;
+            --body-bg: #f8fafc;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --radius: 8px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--body-bg);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding-bottom: 60px;
+        }
+
+        /* Top Header */
+        header {
+            background: #1e293b;
+            color: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header-wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-area h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 9999px;
+            text-transform: uppercase;
+        }
+        .badge-dev { background: #38bdf8; color: #082f49; }
+        .badge-success { background: #dcfce7; color: #14532d; }
+        .badge-warning { background: #fef3c7; color: #78350f; }
+        .badge-danger { background: #fee2e2; color: #7f1d1d; }
+        .badge-info { background: #e0f2fe; color: #0369a1; }
+
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            background: #334155;
+            padding: 4px;
+            border-radius: 8px;
+            gap: 4px;
+        }
+        .nav-tab-btn {
+            background: transparent;
+            color: #cbd5e1;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .nav-tab-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        /* Config Bar */
+        .config-bar {
+            background: #f1f5f9;
+            border-bottom: 1px solid var(--border);
+            padding: 8px 24px;
+            font-size: 13px;
+        }
+        .config-wrap {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .config-item { display: flex; align-items: center; gap: 6px; }
+        .config-item input {
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+            width: 320px;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 16px;
+        }
+
+        /* Card styles */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+        .card-title { font-size: 1.15rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; }
+        .card-desc { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+
+        /* Forms */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-group.full-width { grid-column: 1 / -1; }
+        label { font-size: 13px; font-weight: 600; color: #334155; }
+        input[type="text"], input[type="password"], input[type="email"], input[type="number"], textarea, select {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 14px;
+            color: #0f172a;
+            outline: none;
+            transition: border-color 0.15s ease;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37,99,235,0.15);
+        }
+        textarea { resize: vertical; min-height: 80px; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-secondary { background: #e2e8f0; color: #334155; }
+        .btn-secondary:hover { background: #cbd5e1; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-success:hover { background: #15803d; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+
+        /* Banner */
+        .status-banner {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .status-banner-content { font-size: 13px; color: #1e3a8a; }
+
+        /* Metrics grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .metric-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            text-align: center;
+        }
+        .metric-val { font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+        .metric-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+
+        /* Response log & raw output */
+        .log-box {
+            background: #0f172a;
+            color: #f1f5f9;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            max-height: 250px;
+            white-space: pre-wrap;
+            margin-top: 12px;
+        }
+
+        /* Tables */
+        .table-wrap { overflow-x: auto; margin-top: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+        th { background: #f1f5f9; padding: 10px 12px; font-weight: 600; color: #475569; border-bottom: 1px solid var(--border); }
+        td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+        tr:hover td { background: #f8fafc; }
+
+        /* Candidate feedback card */
+        .feedback-box {
+            border-left: 4px solid var(--primary);
+            background: #f8fafc;
+            padding: 16px;
+            border-radius: 4px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+        .feedback-box.shortlisted { border-left-color: var(--success); background: #f0fdf4; }
+        .feedback-box.rejected { border-left-color: var(--danger); background: #fef2f2; }
+        .feedback-box.pending { border-left-color: var(--warning); background: #fffbeb; }
+
+        .hidden { display: none !important; }
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <h1>🚀 Frontend API Integration Tester</h1>
-    <p style="text-align: center;">Share this file with your friend! Press <b>F12</b> to open the Browser Developer Tools and watch the Network requests.</p>
-    
-    <div class="step">
-        <h3>Step 1: Setup IDs (API Gateway CORS Test)</h3>
-        <p>This tests if the API Gateway allows POST requests from a web browser.</p>
-        <button onclick="createSetup()">Create Tenant & Job</button>
-        <pre id="out1">Awaiting action...</pre>
+
+    <!-- Header -->
+    <header>
+        <div class="header-wrap">
+            <div class="logo-area">
+                <span style="font-size: 24px;">🎯</span>
+                <div>
+                    <h1>AI Resume Screening SaaS</h1>
+                    <div style="font-size: 12px; color: #94a3b8;">End-to-End Self-Test Suite & Developer Workbench</div>
+                </div>
+                <span class="badge badge-dev">Live Cloud Dev</span>
+            </div>
+            <div class="nav-tabs">
+                <button class="nav-tab-btn active" id="tabRecruiterBtn" onclick="switchTab('recruiter')">👔 Recruiter Workspace</button>
+                <button class="nav-tab-btn" id="tabCandidateBtn" onclick="switchTab('candidate')">🎓 Candidate Portal</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Global Config & Auth Bar -->
+    <div class="config-bar">
+        <div class="config-wrap">
+            <div class="config-item">
+                <label for="apiUrlInput">API Base:</label>
+                <input type="text" id="apiUrlInput" value="https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev">
+            </div>
+            <div class="config-item">
+                <label for="userPoolIdInput">Pool ID:</label>
+                <input type="text" id="userPoolIdInput" value="ap-south-1_0jQ33OKwk" style="width: 160px;">
+            </div>
+            <div class="config-item">
+                <label for="clientIdInput">Client ID:</label>
+                <input type="text" id="clientIdInput" value="7cu49634tijn7m70lhekvhuknj" style="width: 220px;">
+            </div>
+            <div class="config-item">
+                <span id="authStatusPill" class="badge badge-warning">Guest (Unauthenticated)</span>
+            </div>
+        </div>
     </div>
 
-    <div class="step">
-        <h3>Step 2: Upload Resume (S3 CORS Test)</h3>
-        <p>This gets a Presigned URL and tests if the browser is allowed to PUT the file directly into the AWS S3 bucket.</p>
-        <input type="file" id="resumeFile" accept="application/pdf">
-        <button onclick="uploadResume()">Upload to S3</button>
-        <pre id="out2">Awaiting action...</pre>
-    </div>
+    <!-- MAIN APP CONTENT -->
+    <main class="container">
 
-    <div class="step">
-        <h3>Step 3: Trigger & View Screening</h3>
-        <p>This tests the background AWS polling mechanism.</p>
-        <button onclick="runScreening()">Start AI Screening</button>
-        <pre id="out3">Awaiting action...</pre>
-    </div>
+        <!-- ============================================================== -->
+        <!-- RECRUITER WORKSPACE (PROTECTED)                                -->
+        <!-- ============================================================== -->
+        <div id="recruiterWorkspace">
 
+            <!-- Active Context Banner -->
+            <div class="status-banner">
+                <div class="status-banner-content">
+                    <strong>Active Recruiter Context:</strong>
+                    Tenant: <code id="activeTenantDisplay">None</code> |
+                    Job ID: <code id="activeJobDisplay">None</code> |
+                    Rubric: <span id="activeRubricBadge" class="badge badge-warning">NOT CONFIGURED</span>
+                </div>
+                <div>
+                    <button class="btn btn-secondary btn-sm" onclick="copyActiveJobId()">📋 Copy Job ID</button>
+                    <button class="btn btn-secondary btn-sm" onclick="sendJobToCandidatePortal()">➡️ Apply as Candidate</button>
+                </div>
+            </div>
+
+            <!-- Step 1: Recruiter Authentication -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔐 1. Recruiter Authentication (Amazon Cognito)</div>
+                    <div id="authActionsHeader"></div>
+                </div>
+                <div class="card-desc">Sign in with an existing Cognito user, register a new recruiter account with email verification, or paste an existing JWT token.</div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="cognitoEmail">Recruiter Email</label>
+                        <input type="email" id="cognitoEmail" placeholder="recruiter@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="cognitoPassword">Password</label>
+                        <input type="password" id="cognitoPassword" placeholder="Minimum 8 chars, 1 uppercase, 1 number">
+                    </div>
+                    <div class="form-group">
+                        <label for="cognitoCode">Verification Code (for Sign Up)</label>
+                        <input type="text" id="cognitoCode" placeholder="6-digit code sent to email">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="cognitoSignIn()">🔑 Sign In (SRP)</button>
+                    <button class="btn btn-secondary" onclick="cognitoSignUp()">📝 Sign Up</button>
+                    <button class="btn btn-secondary" onclick="cognitoConfirm()">✅ Confirm Code</button>
+                    <button class="btn btn-secondary" onclick="quickFillSampleUser()">⚡ Fill Sample User</button>
+                    <button class="btn btn-secondary" onclick="fetchUserProfile()">👤 Test GET /me</button>
+                    <button class="btn btn-danger" onclick="logoutRecruiter()">🚪 Sign Out</button>
+                </div>
+
+                <!-- Direct JWT Paste Option -->
+                <div style="margin-top: 16px; border-top: 1px dashed var(--border); padding-top: 12px;">
+                    <details>
+                        <summary style="font-size: 13px; font-weight: 600; cursor: pointer; color: var(--primary);">Manual Token Bypass / Quick Paste</summary>
+                        <div class="form-group" style="margin-top: 8px;">
+                            <textarea id="manualJwtToken" placeholder="Paste Cognito id_token JWT here (starts with eyJ...)" style="font-family: monospace; font-size: 12px;"></textarea>
+                            <button class="btn btn-secondary btn-sm" style="margin-top: 6px; width: fit-content;" onclick="useManualToken()">Apply Stored Token</button>
+                        </div>
+                    </details>
+                </div>
+
+                <pre id="authLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 2: Tenant & Team Setup -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🏢 2. Tenant (Company) & Team Management</div>
+                    <span class="badge badge-info">POST /tenants</span>
+                </div>
+                <div class="card-desc">Every job and candidate belongs to an isolated tenant. Create a new organization or switch active tenant.</div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="tenantName">Company / Tenant Name</label>
+                        <input type="text" id="tenantName" placeholder="e.g. Acme Tech Solutions">
+                    </div>
+                    <div class="form-group">
+                        <label for="manualTenantId">Or Active Tenant ID</label>
+                        <input type="text" id="manualTenantId" placeholder="UUID of existing tenant">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="createTenant()">➕ Create Tenant</button>
+                    <button class="btn btn-secondary" onclick="setActiveTenantFromInput()">📌 Set Active Tenant</button>
+                    <button class="btn btn-secondary" onclick="listTenantMembers()">👥 List Members</button>
+                </div>
+
+                <pre id="tenantLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 3: Job Description & Shortlist Goal -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📄 3. Job Posting & Target Shortlist Count</div>
+                    <span class="badge badge-info">POST /tenants/{id}/jobs</span>
+                </div>
+                <div class="card-desc">Define the job title, target shortlisted candidate count (K), and detailed job description.</div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="jobTitle">Job Title</label>
+                        <input type="text" id="jobTitle" value="Senior Backend & AI Engineer">
+                    </div>
+                    <div class="form-group">
+                        <label for="jobShortlistCount">Target Shortlisted Count (K)</label>
+                        <input type="number" id="jobShortlistCount" value="3" min="1" max="50">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="jobDescription">Job Description / Requirements</label>
+                        <textarea id="jobDescription" rows="5" placeholder="Enter complete job description, technical requirements, and qualifications...">Senior Backend & AI Engineer with 5+ years of experience in Python, FastAPI, and AWS serverless architecture (Lambda, S3, SQS). Experience with LLM integrations (Groq, OpenAI, Anthropic), vector embeddings, and RAG pipelines is required. Strong knowledge of MongoDB Atlas, database indexing, and asynchronous messaging.</textarea>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="createJob()">🚀 Create Job Posting</button>
+                    <button class="btn btn-secondary" onclick="listTenantJobs()">📋 List Tenant Jobs</button>
+                    <button class="btn btn-secondary" onclick="fillSampleJobData()">⚡ Fill Sample JD</button>
+                </div>
+
+                <div id="jobsTableWrap" class="table-wrap hidden">
+                    <table id="jobsTable">
+                        <thead>
+                            <tr>
+                                <th>Job ID</th>
+                                <th>Title</th>
+                                <th>Shortlist K</th>
+                                <th>Status</th>
+                                <th>Rubric</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jobsTableBody"></tbody>
+                    </table>
+                </div>
+
+                <pre id="jobLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 4: AI Rubric Engineering & Approval (Phase 4) -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">⚖️ 4. AI Rubric Synthesis & Approval (Phase 4)</div>
+                    <span id="rubricStatusHeader" class="badge badge-warning">Rubric: NOT CONFIGURED</span>
+                </div>
+                <div class="card-desc">Use Groq LLM to automatically synthesize a 4–8 criteria scoring rubric from the Job Description. The rubric must be APPROVED before running screening.</div>
+
+                <div class="btn-group" style="margin-bottom: 16px;">
+                    <button class="btn btn-primary" onclick="buildRubric()"><span id="rubricSpinner" class="spinner hidden"></span> 🤖 Generate Rubric with Groq LLM</button>
+                    <button class="btn btn-secondary" onclick="fetchRubric()">🔍 Inspect Current Rubric</button>
+                    <button class="btn btn-success" id="btnApproveRubric" onclick="approveCurrentRubric()">✅ Approve Rubric (Make Immutable)</button>
+                </div>
+
+                <!-- Rubric Criteria Interactive Display -->
+                <div id="rubricContainer" class="hidden">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="font-size: 14px; font-weight: 700;">Rubric Criteria (<span id="rubricVersionDisplay">v1</span>):</h4>
+                        <span id="rubricApprovedBadge" class="badge badge-dev">DRAFT</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table id="rubricTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 20%;">Criterion Name</th>
+                                    <th style="width: 45%;">Description / Evaluation Guide</th>
+                                    <th style="width: 15%;">Weight (0.0–1.0)</th>
+                                    <th style="width: 20%;">Priority Level</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rubricTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <pre id="rubricLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 5: Live Screening Dashboard & Trigger -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📊 5. Screening Pipeline & Real-Time Dashboard</div>
+                    <span class="badge badge-info">GET /screening-status</span>
+                </div>
+                <div class="card-desc">View live candidate ingestion counts, pipeline status, and remaining Groq API budget. Once candidates have applied and indexed, run the screening pipeline.</div>
+
+                <!-- Live Metrics Cards -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">Total Applications</div>
+                        <div class="metric-val" id="metricTotalApps">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Indexed for AI</div>
+                        <div class="metric-val" id="metricIndexedApps">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Shortlisted Target</div>
+                        <div class="metric-val" id="metricTargetK">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Candidates Shortlisted</div>
+                        <div class="metric-val" id="metricShortlisted">0</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Remaining Daily Budget</div>
+                        <div class="metric-val" id="metricBudgetRemaining">$5.00</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Review Queue Pending</div>
+                        <div class="metric-val" id="metricReviewQueue">0</div>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="triggerScreening()"><span id="screeningSpinner" class="spinner hidden"></span> ⚡ Run AI Screening</button>
+                    <button class="btn btn-secondary" onclick="refreshScreeningStatus()">🔄 Refresh Live Status</button>
+                    <button class="btn btn-secondary" onclick="listApplications()">📑 List Applications</button>
+                    <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; margin-left: 12px; cursor: pointer;">
+                        <input type="checkbox" id="autoPollCheckbox" onchange="toggleAutoPoll(this.checked)"> Auto-Poll (Every 4s)
+                    </label>
+                </div>
+
+                <!-- Applications Table -->
+                <div id="appsTableWrap" class="table-wrap hidden">
+                    <table id="appsTable">
+                        <thead>
+                            <tr>
+                                <th>Candidate Name</th>
+                                <th>Application ID</th>
+                                <th>Phase 1 (Parse)</th>
+                                <th>Phase 2 (Index)</th>
+                                <th>Final Decision</th>
+                                <th>Applied At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="appsTableBody"></tbody>
+                    </table>
+                </div>
+
+                <pre id="screeningLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 6: Screening Results & Candidate Reports -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🏆 6. Ranked Leaderboard & Recruiter Shortlist Reports</div>
+                    <span class="badge badge-info">GET /screening-results</span>
+                </div>
+                <div class="card-desc">Inspect ranked candidates, final composite scores, and open detailed evidence-grounded evaluation reports with interview questions.</div>
+
+                <div class="btn-group" style="margin-bottom: 16px;">
+                    <button class="btn btn-primary" onclick="fetchScreeningResults()">🏅 Fetch Leaderboard Results</button>
+                </div>
+
+                <div id="leaderboardWrap" class="table-wrap hidden">
+                    <table id="leaderboardTable">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Candidate Name</th>
+                                <th>Candidate ID</th>
+                                <th>Composite Score</th>
+                                <th>Decision</th>
+                                <th>Evidence Report</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboardBody"></tbody>
+                    </table>
+                </div>
+
+                <!-- Recruiter Detailed Report Card -->
+                <div id="recruiterReportCard" class="card hidden" style="border-left: 4px solid var(--primary); margin-top: 16px; background: #fafafa;">
+                    <div class="card-header">
+                        <h4 style="font-size: 15px; font-weight: 700;">HR Candidate Evaluation Report: <span id="reportCandidateName"></span></h4>
+                        <button class="btn btn-secondary btn-sm" onclick="closeReportCard()">✕ Close</button>
+                    </div>
+                    <div id="reportContentArea"></div>
+                </div>
+
+                <pre id="resultsLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 7: Human Review Queue -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🛡️ 7. Human Review Queue (Quality Assurance)</div>
+                    <span class="badge badge-info">GET /review-queue</span>
+                </div>
+                <div class="card-desc">Candidates flagged for borderline scores, parse discrepancies, or false negative risks are sent here for human-in-the-loop review.</div>
+
+                <div class="btn-group" style="margin-bottom: 16px;">
+                    <button class="btn btn-primary" onclick="fetchReviewQueue()">📋 Load Flagged Candidates</button>
+                </div>
+
+                <div id="reviewQueueWrap" class="table-wrap hidden">
+                    <table id="reviewQueueTable">
+                        <thead>
+                            <tr>
+                                <th>Candidate ID</th>
+                                <th>Flag Reason</th>
+                                <th>Risk Level</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>Recruiter Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reviewQueueBody"></tbody>
+                    </table>
+                </div>
+
+                <pre id="reviewQueueLog" class="log-box hidden"></pre>
+            </div>
+
+        </div>
+
+
+        <!-- ============================================================== -->
+        <!-- CANDIDATE PORTAL (PUBLIC)                                      -->
+        <!-- ============================================================== -->
+        <div id="candidatePortal" class="hidden">
+
+            <!-- Step 1: View Public Job Posting -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">🔍 1. View Public Job Posting</div>
+                    <span class="badge badge-dev">PUBLIC API</span>
+                </div>
+                <div class="card-desc">No login required. Candidates view open positions using the Job ID.</div>
+
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="candidateJobId">Job ID</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="candidateJobId" placeholder="Paste Job ID from Recruiter tab" style="flex: 1;">
+                            <button class="btn btn-primary" onclick="fetchCandidateJob()">View Job</button>
+                            <button class="btn btn-secondary" onclick="syncJobFromRecruiter()">Sync Recruiter Job</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="candidateJobCard" class="card hidden" style="background: #f8fafc; border: 1px solid #cbd5e1; margin-top: 12px;">
+                    <h3 id="publicJobTitle" style="color: var(--primary); margin-bottom: 6px;"></h3>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">Status: <span id="publicJobStatus" class="badge badge-success">OPEN</span></div>
+                    <div id="publicJobDesc" style="white-space: pre-wrap; font-size: 14px;"></div>
+                </div>
+
+                <pre id="candidateJobLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 2: Apply & Upload Resume to S3 -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📤 2. Submit Application & Direct S3 Upload</div>
+                    <span class="badge badge-dev">S3 CORS TEST</span>
+                </div>
+                <div class="card-desc">Applies via API Gateway, acquires an authenticated S3 Presigned URL + Private Candidate Access Token, and PUTs the PDF directly to AWS S3.</div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="applicantName">Full Name</label>
+                        <input type="text" id="applicantName" placeholder="e.g. Alex Mercer">
+                    </div>
+                    <div class="form-group">
+                        <label for="applicantEmail">Email Address</label>
+                        <input type="email" id="applicantEmail" placeholder="alex.mercer@example.com">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="applicantResumeFile">Resume File (PDF)</label>
+                        <input type="file" id="applicantResumeFile" accept="application/pdf">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="submitApplicationAndUpload()"><span id="uploadSpinner" class="spinner hidden"></span> 🚀 Submit Application & Upload Resume</button>
+                    <button class="btn btn-secondary" onclick="fillSampleCandidate()">⚡ Fill Sample Candidate</button>
+                </div>
+
+                <!-- Token Alert Card -->
+                <div id="candidateTokenCard" class="status-banner hidden" style="background: #f0fdf4; border-color: #86efac; margin-top: 16px;">
+                    <div>
+                        <strong style="color: #14532d;">Application Submitted Successfully!</strong>
+                        <div style="font-size: 13px; color: #166534; margin-top: 4px;">
+                            Application ID: <code id="dispAppId"></code><br>
+                            Your Private Access Token: <code id="dispAppToken" style="font-weight: 700; color: #047857;"></code>
+                        </div>
+                        <div style="font-size: 12px; color: #15803d; margin-top: 4px;">
+                            ℹ️ Keep this access token safe to check your constructive feedback!
+                        </div>
+                    </div>
+                </div>
+
+                <pre id="candidateUploadLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 3: Application Status Tracking -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">⏱️ 3. Application Processing Tracker</div>
+                    <span class="badge badge-dev">PUBLIC API</span>
+                </div>
+                <div class="card-desc">Track real-time background resume ingestion (PDF text extraction, chunking, and Voyage AI embedding).</div>
+
+                <div class="form-grid">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label for="trackAppId">Application ID</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="trackAppId" placeholder="Application ID" style="flex: 1;">
+                            <button class="btn btn-primary" onclick="trackApplicationStatus()">Check Status</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="statusTrackerCard" class="card hidden" style="background: #f8fafc; margin-top: 12px;">
+                    <h4 style="font-size: 14px; margin-bottom: 8px;">Pipeline Processing Stages:</h4>
+                    <ul style="list-style: none; font-size: 13px; display: flex; flex-direction: column; gap: 6px;">
+                        <li>📄 S3 PDF Upload: <strong id="stageUpload">PENDING</strong></li>
+                        <li>⚙️ Text Extraction (Phase 1): <strong id="stagePhase1">NOT_STARTED</strong></li>
+                        <li>🧠 Voyage AI Vector Indexing (Phase 2): <strong id="stagePhase2">NOT_STARTED</strong></li>
+                        <li>⚖️ Overall Status: <span id="stageOverall" class="badge badge-info">PENDING</span></li>
+                    </ul>
+                </div>
+
+                <pre id="trackLog" class="log-box hidden"></pre>
+            </div>
+
+            <!-- Step 4: Candidate Constructive Feedback -->
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">💬 4. Constructive Candidate Feedback</div>
+                    <span class="badge badge-dev">SECURE ACCESS</span>
+                </div>
+                <div class="card-desc">Candidate constructive feedback is guarded with your private access token. If your application is still under review, it will safely show pending. If rejected, it provides actionable, empathetic feedback without exposing recruiter scoring or other applicants' data.</div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="feedbackAppId">Application ID</label>
+                        <input type="text" id="feedbackAppId" placeholder="Application ID">
+                    </div>
+                    <div class="form-group">
+                        <label for="feedbackToken">Candidate Access Token</label>
+                        <input type="text" id="feedbackToken" placeholder="Private token received upon application submission">
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" onclick="fetchCandidateFeedback()">📬 View My Feedback</button>
+                </div>
+
+                <!-- Feedback Display Box -->
+                <div id="candidateFeedbackResult" class="hidden">
+                    <div id="feedbackBox" class="feedback-box">
+                        <h4 id="feedbackTitle" style="font-weight: 700; margin-bottom: 6px;"></h4>
+                        <div id="feedbackBodyText" style="white-space: pre-wrap;"></div>
+                    </div>
+                </div>
+
+                <pre id="candidateFeedbackLog" class="log-box hidden"></pre>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
     <script>
-        const API_URL = "https://vxbiq8rt27.execute-api.ap-south-1.amazonaws.com/dev";
-        let tenantId, jobId, uploadUrl;
+        // State Store
+        const state = {
+            activeTab: 'recruiter',
+            jwtToken: localStorage.getItem('recruiter_jwt') || '',
+            userEmail: localStorage.getItem('recruiter_email') || '',
+            userSub: localStorage.getItem('recruiter_sub') || '',
+            tenantId: localStorage.getItem('active_tenant_id') || '',
+            jobId: localStorage.getItem('active_job_id') || '',
+            candidateAppId: localStorage.getItem('candidate_app_id') || '',
+            candidateToken: localStorage.getItem('candidate_token') || '',
+            rubric: null,
+            pollTimer: null
+        };
 
-        function log(id, msg) { document.getElementById(id).innerText = msg; }
+        // DOM elements initialization on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initUiState();
+        });
 
-        async function createSetup() {
-            try {
-                log("out1", "Creating Tenant...");
-                let res = await fetch(`${API_URL}/tenants`, {
-                    method: "POST", headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({ name: "Frontend Test Corp" })
-                });
-                let data = await res.json();
-                tenantId = data.tenant_id;
-
-                log("out1", `Tenant Created: ${tenantId}\nCreating Job...`);
-                let res2 = await fetch(`${API_URL}/tenants/${tenantId}/jobs`, {
-                    method: "POST", headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({ title: "Frontend React Developer", description: "Looking for strong frontend integration skills." })
-                });
-                let data2 = await res2.json();
-                jobId = data2.job_id;
-
-                log("out1", `✅ SUCCESS!\n\nTenant ID: ${tenantId}\nJob ID: ${jobId}`);
-            } catch(e) { log("out1", "❌ ERROR: " + e.message); }
+        function getApiUrl() {
+            return document.getElementById('apiUrlInput').value.trim().replace(/\/+$/, '');
         }
 
-        async function uploadResume() {
-            let fileInput = document.getElementById('resumeFile');
-            if(!fileInput.files.length) return alert("Please select a PDF file first!");
-            if(!jobId) return alert("Please run Step 1 first!");
-
-            try {
-                log("out2", "1. Requesting secure S3 upload URL from API...");
-                let res = await fetch(`${API_URL}/jobs/${jobId}/applications`, {
-                    method: "POST", headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({ candidate_name: "Browser Tester" })
-                });
-                let data = await res.json();
-                uploadUrl = data.upload_url;
-
-                log("out2", "2. Uploading PDF directly to S3...\n(If CORS fails, it happens here!)");
-                
-                // This will succeed because we applied the S3 CORS fix!
-                let s3Res = await fetch(uploadUrl, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/pdf" },
-                    body: fileInput.files[0]
-                });
-                
-                if(!s3Res.ok) throw new Error("S3 Upload Failed: " + s3Res.statusText);
-                log("out2", "✅ SUCCESS! PDF Uploaded to S3 via Browser.\n\n⚠️ WAIT 60 SECONDS for AWS to process the PDF before clicking Step 3.");
-            } catch(e) { log("out2", "❌ ERROR: " + e.message); }
+        function getCognitoPoolData() {
+            return {
+                UserPoolId: document.getElementById('userPoolIdInput').value.trim(),
+                ClientId: document.getElementById('clientIdInput').value.trim()
+            };
         }
 
-        async function runScreening() {
-            if(!jobId) return alert("Please run Step 1 first!");
+        function getCognitoUserPool() {
+            if (typeof AmazonCognitoIdentity === 'undefined') {
+                alert('Amazon Cognito Identity library failed to load. Please check your internet connection.');
+                return null;
+            }
+            return new AmazonCognitoIdentity.CognitoUserPool(getCognitoPoolData());
+        }
+
+        function initUiState() {
+            if (state.userEmail && state.jwtToken) {
+                updateAuthBadge(true, state.userEmail);
+            } else {
+                updateAuthBadge(false);
+            }
+            if (state.tenantId) {
+                document.getElementById('activeTenantDisplay').innerText = state.tenantId;
+                document.getElementById('manualTenantId').value = state.tenantId;
+            }
+            if (state.jobId) {
+                document.getElementById('activeJobDisplay').innerText = state.jobId;
+                document.getElementById('candidateJobId').value = state.jobId;
+            }
+            if (state.candidateAppId) {
+                document.getElementById('trackAppId').value = state.candidateAppId;
+                document.getElementById('feedbackAppId').value = state.candidateAppId;
+            }
+            if (state.candidateToken) {
+                document.getElementById('feedbackToken').value = state.candidateToken;
+            }
+        }
+
+        // Navigation Tab Switcher
+        function switchTab(tab) {
+            state.activeTab = tab;
+            const recTab = document.getElementById('recruiterWorkspace');
+            const canTab = document.getElementById('candidatePortal');
+            const recBtn = document.getElementById('tabRecruiterBtn');
+            const canBtn = document.getElementById('tabCandidateBtn');
+
+            if (tab === 'recruiter') {
+                recTab.classList.remove('hidden');
+                canTab.classList.add('hidden');
+                recBtn.classList.add('active');
+                canBtn.classList.remove('active');
+            } else {
+                recTab.classList.add('hidden');
+                canTab.classList.remove('hidden');
+                recBtn.classList.remove('active');
+                canBtn.classList.add('active');
+                if (state.jobId && !document.getElementById('candidateJobId').value) {
+                    document.getElementById('candidateJobId').value = state.jobId;
+                }
+            }
+        }
+
+        function sendJobToCandidatePortal() {
+            if (!state.jobId) {
+                alert('No active Job ID selected. Please create or select a job first.');
+                return;
+            }
+            switchTab('candidate');
+            document.getElementById('candidateJobId').value = state.jobId;
+            fetchCandidateJob();
+        }
+
+        function updateAuthBadge(isAuth, email = '') {
+            const pill = document.getElementById('authStatusPill');
+            if (isAuth) {
+                pill.className = 'badge badge-success';
+                pill.innerText = `Logged In: ${email || 'Authenticated'}`;
+            } else {
+                pill.className = 'badge badge-warning';
+                pill.innerText = 'Guest (Unauthenticated)';
+            }
+        }
+
+        function logOutput(elementId, data) {
+            const el = document.getElementById(elementId);
+            el.classList.remove('hidden');
+            if (typeof data === 'object') {
+                el.innerText = JSON.stringify(data, null, 2);
+            } else {
+                el.innerText = data;
+            }
+        }
+
+        function copyActiveJobId() {
+            if (!state.jobId) return alert('No active Job ID to copy.');
+            navigator.clipboard.writeText(state.jobId);
+            alert(`Copied Job ID to clipboard: ${state.jobId}`);
+        }
+
+        // Helper: Authenticated fetch wrapper for protected endpoints
+        async function apiFetch(endpoint, options = {}) {
+            const url = `${getApiUrl()}${endpoint}`;
+            const headers = options.headers || {};
+
+            if (state.jwtToken) {
+                headers['Authorization'] = `Bearer ${state.jwtToken}`;
+            }
+            if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
+                headers['Content-Type'] = 'application/json';
+            }
+
+            const response = await fetch(url, { ...options, headers });
+            const contentType = response.headers.get('content-type') || '';
+            let data = null;
+
+            if (contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                data = await response.text();
+            }
+
+            return { status: response.status, ok: response.ok, data };
+        }
+
+        // =====================================================================
+        // RECRUITER WORKFLOW HANDLERS
+        // =====================================================================
+
+        function quickFillSampleUser() {
+            document.getElementById('cognitoEmail').value = 'recruiter@example.com';
+            document.getElementById('cognitoPassword').value = 'SecureP@ssw0rd123';
+        }
+
+        function cognitoSignIn() {
+            const email = document.getElementById('cognitoEmail').value.trim();
+            const password = document.getElementById('cognitoPassword').value;
+            if (!email || !password) return alert('Please enter both email and password.');
+
+            const userPool = getCognitoUserPool();
+            if (!userPool) return;
+
+            logOutput('authLog', 'Attempting Cognito SRP Sign-In...');
+            const authDetails = new AmazonCognitoIdentity.AuthenticationDetails({
+                Username: email,
+                Password: password
+            });
+            const cognitoUser = new AmazonCognitoIdentity.CognitoUser({
+                Username: email,
+                Pool: userPool
+            });
+
+            cognitoUser.authenticateUser(authDetails, {
+                onSuccess: function (result) {
+                    const idToken = result.getIdToken().getJwtToken();
+                    const sub = result.getIdToken().decodePayload().sub;
+                    state.jwtToken = idToken;
+                    state.userEmail = email;
+                    state.userSub = sub;
+                    localStorage.setItem('recruiter_jwt', idToken);
+                    localStorage.setItem('recruiter_email', email);
+                    localStorage.setItem('recruiter_sub', sub);
+                    updateAuthBadge(true, email);
+                    logOutput('authLog', {
+                        message: 'Sign In Successful!',
+                        user_sub: sub,
+                        email: email,
+                        id_token_preview: idToken.substring(0, 30) + '...'
+                    });
+                },
+                onFailure: function (err) {
+                    logOutput('authLog', `Sign In Failed: ${err.message || JSON.stringify(err)}`);
+                },
+                newPasswordRequired: function () {
+                    logOutput('authLog', 'New password required for this account.');
+                }
+            });
+        }
+
+        function cognitoSignUp() {
+            const email = document.getElementById('cognitoEmail').value.trim();
+            const password = document.getElementById('cognitoPassword').value;
+            if (!email || !password) return alert('Please enter both email and password.');
+
+            const userPool = getCognitoUserPool();
+            if (!userPool) return;
+
+            const attributeList = [
+                new AmazonCognitoIdentity.CognitoUserAttribute({ Name: 'email', Value: email })
+            ];
+
+            logOutput('authLog', 'Signing up with Cognito...');
+            userPool.signUp(email, password, attributeList, null, function (err, result) {
+                if (err) {
+                    logOutput('authLog', `Sign Up Error: ${err.message || JSON.stringify(err)}`);
+                    return;
+                }
+                logOutput('authLog', {
+                    message: 'Sign up successful! Please check your email for the 6-digit confirmation code.',
+                    userSub: result.userSub,
+                    isConfirmed: result.userConfirmed
+                });
+            });
+        }
+
+        function cognitoConfirm() {
+            const email = document.getElementById('cognitoEmail').value.trim();
+            const code = document.getElementById('cognitoCode').value.trim();
+            if (!email || !code) return alert('Please provide email and the 6-digit verification code.');
+
+            const userPool = getCognitoUserPool();
+            if (!userPool) return;
+
+            const cognitoUser = new AmazonCognitoIdentity.CognitoUser({
+                Username: email,
+                Pool: userPool
+            });
+
+            cognitoUser.confirmRegistration(code, true, function (err, result) {
+                if (err) {
+                    logOutput('authLog', `Confirmation Error: ${err.message || JSON.stringify(err)}`);
+                    return;
+                }
+                logOutput('authLog', 'Account verified successfully! You can now click "Sign In (SRP)".');
+            });
+        }
+
+        function useManualToken() {
+            const token = document.getElementById('manualJwtToken').value.trim();
+            if (!token) return alert('Please paste a valid JWT token.');
+            state.jwtToken = token;
+            localStorage.setItem('recruiter_jwt', token);
+            updateAuthBadge(true, 'Token Pasted');
+            logOutput('authLog', 'Applied manual JWT token. Ready to make authenticated requests.');
+        }
+
+        function logoutRecruiter() {
+            state.jwtToken = '';
+            state.userEmail = '';
+            state.userSub = '';
+            localStorage.removeItem('recruiter_jwt');
+            localStorage.removeItem('recruiter_email');
+            localStorage.removeItem('recruiter_sub');
+            updateAuthBadge(false);
+            logOutput('authLog', 'Logged out.');
+        }
+
+        async function fetchUserProfile() {
+            logOutput('authLog', 'Fetching user profile via GET /me...');
             try {
-                log("out3", "Triggering screening...");
-                await fetch(`${API_URL}/jobs/${jobId}/screening`, { method: "POST" });
-                
-                log("out3", "Screening queued! Polling for results every 5 seconds...");
-                
-                // Poll every 5 seconds
-                const interval = setInterval(async () => {
-                    let res = await fetch(`${API_URL}/jobs/${jobId}/screening-results`);
-                    let data = await res.json();
-                    
-                    log("out3", "LIVE STATUS: " + data.status + "\n\n" + JSON.stringify(data, null, 2));
-                    
-                    if (data.status === "COMPLETED") {
-                        clearInterval(interval);
+                const res = await apiFetch('/me', { method: 'GET' });
+                logOutput('authLog', res.data);
+                if (res.ok && res.data.tenants && res.data.tenants.length > 0) {
+                    const firstTenant = res.data.tenants[0].tenant_id;
+                    if (!state.tenantId) {
+                        state.tenantId = firstTenant;
+                        localStorage.setItem('active_tenant_id', firstTenant);
+                        document.getElementById('activeTenantDisplay').innerText = firstTenant;
+                        document.getElementById('manualTenantId').value = firstTenant;
                     }
-                }, 5000);
-            } catch(e) { log("out3", "❌ ERROR: " + e.message); }
+                }
+            } catch (err) {
+                logOutput('authLog', `Network error: ${err.message}`);
+            }
+        }
+
+        async function createTenant() {
+            const name = document.getElementById('tenantName').value.trim();
+            if (!name) return alert('Please provide a Tenant Name.');
+
+            logOutput('tenantLog', `Creating tenant '${name}'...`);
+            try {
+                const res = await apiFetch('/tenants', {
+                    method: 'POST',
+                    body: JSON.stringify({ name })
+                });
+                logOutput('tenantLog', res.data);
+                if (res.ok && res.data.tenant_id) {
+                    state.tenantId = res.data.tenant_id;
+                    localStorage.setItem('active_tenant_id', state.tenantId);
+                    document.getElementById('activeTenantDisplay').innerText = state.tenantId;
+                    document.getElementById('manualTenantId').value = state.tenantId;
+                    alert(`Tenant created! Active Tenant ID set to: ${state.tenantId}`);
+                }
+            } catch (err) {
+                logOutput('tenantLog', `Error: ${err.message}`);
+            }
+        }
+
+        function setActiveTenantFromInput() {
+            const tId = document.getElementById('manualTenantId').value.trim();
+            if (!tId) return alert('Please enter a tenant ID.');
+            state.tenantId = tId;
+            localStorage.setItem('active_tenant_id', tId);
+            document.getElementById('activeTenantDisplay').innerText = tId;
+            alert(`Active Tenant ID set to: ${tId}`);
+        }
+
+        async function listTenantMembers() {
+            if (!state.tenantId) return alert('Please select or create an active Tenant first.');
+            logOutput('tenantLog', `Fetching members for tenant ${state.tenantId}...`);
+            try {
+                const res = await apiFetch(`/tenants/${state.tenantId}/members`, { method: 'GET' });
+                logOutput('tenantLog', res.data);
+            } catch (err) {
+                logOutput('tenantLog', `Error: ${err.message}`);
+            }
+        }
+
+        function fillSampleJobData() {
+            document.getElementById('jobTitle').value = 'Lead AI Solutions Architect';
+            document.getElementById('jobShortlistCount').value = 3;
+            document.getElementById('jobDescription').value = `Lead AI Solutions Architect needed to design and deploy enterprise LLM applications.
+Requirements:
+- 7+ years of software architecture experience with Python, TypeScript, and AWS cloud services.
+- Extensive hands-on experience with Retrieval-Augmented Generation (RAG), vector databases (Milvus, Pinecone, MongoDB Atlas Vector Search), and semantic reranking.
+- Strong proficiency in LLM prompting, structured outputs, fine-tuning, and guardrails.
+- Proven leadership skills in pair programming, code reviews, and cloud security compliance.`;
+        }
+
+        async function createJob() {
+            if (!state.tenantId) return alert('Please create or select an active Tenant first (Step 2).');
+            const title = document.getElementById('jobTitle').value.trim();
+            const count = parseInt(document.getElementById('jobShortlistCount').value, 10) || 5;
+            const description = document.getElementById('jobDescription').value.trim();
+
+            if (!title || !description) return alert('Title and description are required.');
+
+            logOutput('jobLog', `Creating job in tenant ${state.tenantId}...`);
+            try {
+                const res = await apiFetch(`/tenants/${state.tenantId}/jobs`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        title,
+                        description,
+                        final_shortlisted_candidates_count: count
+                    })
+                });
+                logOutput('jobLog', res.data);
+                if (res.ok && res.data.job_id) {
+                    state.jobId = res.data.job_id;
+                    localStorage.setItem('active_job_id', state.jobId);
+                    document.getElementById('activeJobDisplay').innerText = state.jobId;
+                    document.getElementById('candidateJobId').value = state.jobId;
+                    alert(`Job created! Active Job ID: ${state.jobId}`);
+                    listTenantJobs();
+                }
+            } catch (err) {
+                logOutput('jobLog', `Error: ${err.message}`);
+            }
+        }
+
+        async function listTenantJobs() {
+            if (!state.tenantId) return alert('Please select or create an active Tenant first.');
+            logOutput('jobLog', `Listing jobs for tenant ${state.tenantId}...`);
+            try {
+                const res = await apiFetch(`/tenants/${state.tenantId}/jobs`, { method: 'GET' });
+                logOutput('jobLog', res.data);
+                if (res.ok && res.data.jobs) {
+                    renderJobsTable(res.data.jobs);
+                }
+            } catch (err) {
+                logOutput('jobLog', `Error: ${err.message}`);
+            }
+        }
+
+        function renderJobsTable(jobs) {
+            const tableWrap = document.getElementById('jobsTableWrap');
+            const tbody = document.getElementById('jobsTableBody');
+            tbody.innerHTML = '';
+            tableWrap.classList.remove('hidden');
+
+            jobs.forEach(j => {
+                const tr = document.createElement('tr');
+                const isCurrent = j.job_id === state.jobId;
+                tr.innerHTML = `
+                    <td><code>${j.job_id}</code></td>
+                    <td><strong>${j.title}</strong></td>
+                    <td>${j.final_shortlisted_candidates_count || 5}</td>
+                    <td><span class="badge ${j.status === 'OPEN' ? 'badge-success' : 'badge-warning'}">${j.status}</span></td>
+                    <td><span class="badge ${j.rubric_status === 'APPROVED' ? 'badge-success' : 'badge-warning'}">${j.rubric_status || 'NONE'}</span></td>
+                    <td>
+                        <button class="btn btn-sm ${isCurrent ? 'btn-success' : 'btn-secondary'}" onclick="selectActiveJob('${j.job_id}')">
+                            ${isCurrent ? '✓ Active' : 'Select'}
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function selectActiveJob(jobId) {
+            state.jobId = jobId;
+            localStorage.setItem('active_job_id', jobId);
+            document.getElementById('activeJobDisplay').innerText = jobId;
+            document.getElementById('candidateJobId').value = jobId;
+            listTenantJobs();
+            fetchRubric();
+            refreshScreeningStatus();
+        }
+
+        // Phase 4: Rubric Generation & Approval
+        async function buildRubric() {
+            if (!state.jobId) return alert('Please select or create an active Job first.');
+            const spinner = document.getElementById('rubricSpinner');
+            spinner.classList.remove('hidden');
+            logOutput('rubricLog', `Synthesizing AI rubric for Job ${state.jobId} with Groq LLM...`);
+
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/rubric`, { method: 'POST' });
+                spinner.classList.add('hidden');
+                logOutput('rubricLog', res.data);
+                if (res.ok) {
+                    state.rubric = res.data;
+                    renderRubric(res.data);
+                }
+            } catch (err) {
+                spinner.classList.add('hidden');
+                logOutput('rubricLog', `Error: ${err.message}`);
+            }
+        }
+
+        async function fetchRubric() {
+            if (!state.jobId) return;
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/rubric`, { method: 'GET' });
+                if (res.ok) {
+                    state.rubric = res.data;
+                    renderRubric(res.data);
+                } else {
+                    document.getElementById('activeRubricBadge').innerText = 'NOT CONFIGURED';
+                    document.getElementById('activeRubricBadge').className = 'badge badge-warning';
+                    document.getElementById('rubricStatusHeader').innerText = 'Rubric: NOT CONFIGURED';
+                    document.getElementById('rubricContainer').classList.add('hidden');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderRubric(rubric) {
+            const container = document.getElementById('rubricContainer');
+            const tbody = document.getElementById('rubricTableBody');
+            const statusBadge = document.getElementById('rubricApprovedBadge');
+            const headerBadge = document.getElementById('rubricStatusHeader');
+            const activeBadge = document.getElementById('activeRubricBadge');
+            const versionSpan = document.getElementById('rubricVersionDisplay');
+
+            container.classList.remove('hidden');
+            tbody.innerHTML = '';
+
+            const isApproved = rubric.status === 'APPROVED';
+            const badgeClass = isApproved ? 'badge badge-success' : 'badge badge-warning';
+            statusBadge.className = badgeClass;
+            statusBadge.innerText = rubric.status || 'DRAFT';
+            headerBadge.className = badgeClass;
+            headerBadge.innerText = `Rubric: ${rubric.status || 'DRAFT'} (${rubric.version || 'v1'})`;
+            activeBadge.className = badgeClass;
+            activeBadge.innerText = `${rubric.status || 'DRAFT'} (${rubric.version || 'v1'})`;
+            versionSpan.innerText = rubric.version || 'v1';
+
+            const criteria = rubric.criteria || [];
+            criteria.forEach((c, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${c.name}</strong></td>
+                    <td>${c.description}</td>
+                    <td><code>${c.weight}</code></td>
+                    <td><span class="badge ${c.priority === 'REQUIRED' ? 'badge-danger' : 'badge-info'}">${c.priority || 'PREFERRED'}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function approveCurrentRubric() {
+            if (!state.jobId) return alert('Please select a job first.');
+            logOutput('rubricLog', `Approving rubric for job ${state.jobId}...`);
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/rubric/approve`, { method: 'POST' });
+                logOutput('rubricLog', res.data);
+                if (res.ok) {
+                    alert('Rubric is APPROVED and immutable! You may now trigger screening.');
+                    fetchRubric();
+                    refreshScreeningStatus();
+                }
+            } catch (err) {
+                logOutput('rubricLog', `Error: ${err.message}`);
+            }
+        }
+
+        // Step 5: Screening Dashboard & Execution
+        async function refreshScreeningStatus() {
+            if (!state.jobId) return;
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/screening-status`, { method: 'GET' });
+                if (res.ok) {
+                    const d = res.data;
+                    document.getElementById('metricTotalApps').innerText = d.total_applications || 0;
+                    document.getElementById('metricIndexedApps').innerText = d.indexed_applications || 0;
+                    document.getElementById('metricTargetK').innerText = d.target_shortlisted_count || 0;
+                    document.getElementById('metricShortlisted').innerText = d.candidates_shortlisted || 0;
+                    document.getElementById('metricReviewQueue').innerText = d.review_queue_pending || 0;
+                    if (d.daily_budget && d.daily_budget.remaining_budget_usd !== undefined) {
+                        document.getElementById('metricBudgetRemaining').innerText = `$${Number(d.daily_budget.remaining_budget_usd).toFixed(2)}`;
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        async function triggerScreening() {
+            if (!state.jobId) return alert('Please select a job first.');
+            const spinner = document.getElementById('screeningSpinner');
+            spinner.classList.remove('hidden');
+            logOutput('screeningLog', `Triggering Phase 2+3 screening worker for job ${state.jobId}...`);
+
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/screening`, { method: 'POST' });
+                spinner.classList.add('hidden');
+                logOutput('screeningLog', res.data);
+                if (res.ok) {
+                    alert('AI Screening triggered! Background worker is evaluating candidates.');
+                    refreshScreeningStatus();
+                    document.getElementById('autoPollCheckbox').checked = true;
+                    toggleAutoPoll(true);
+                } else if (res.data && res.data.error) {
+                    alert(`Screening could not be started: ${res.data.error}`);
+                }
+            } catch (err) {
+                spinner.classList.add('hidden');
+                logOutput('screeningLog', `Error: ${err.message}`);
+            }
+        }
+
+        function toggleAutoPoll(enable) {
+            if (state.pollTimer) {
+                clearInterval(state.pollTimer);
+                state.pollTimer = null;
+            }
+            if (enable) {
+                state.pollTimer = setInterval(() => {
+                    refreshScreeningStatus();
+                    fetchScreeningResults(true);
+                }, 4000);
+            }
+        }
+
+        async function listApplications() {
+            if (!state.jobId) return alert('Please select a job first.');
+            logOutput('screeningLog', `Listing applications for job ${state.jobId}...`);
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/applications`, { method: 'GET' });
+                logOutput('screeningLog', res.data);
+                if (res.ok && res.data.applications) {
+                    renderApplicationsTable(res.data.applications);
+                }
+            } catch (err) {
+                logOutput('screeningLog', `Error: ${err.message}`);
+            }
+        }
+
+        function renderApplicationsTable(apps) {
+            const wrap = document.getElementById('appsTableWrap');
+            const tbody = document.getElementById('appsTableBody');
+            wrap.classList.remove('hidden');
+            tbody.innerHTML = '';
+
+            apps.forEach(a => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${a.candidate_name || 'Anonymous'}</strong></td>
+                    <td><code>${a.application_id}</code></td>
+                    <td><span class="badge ${a.phase1_status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${a.phase1_status}</span></td>
+                    <td><span class="badge ${a.phase2_status === 'INDEXED' ? 'badge-success' : 'badge-warning'}">${a.phase2_status}</span></td>
+                    <td><span class="badge ${a.decision === 'SHORTLISTED' ? 'badge-success' : (a.decision === 'REJECTED' ? 'badge-danger' : 'badge-info')}">${a.decision || 'UNDECIDED'}</span></td>
+                    <td>${new Date(a.created_at).toLocaleTimeString()}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Step 6: Screening Results & Reports
+        async function fetchScreeningResults(silent = false) {
+            if (!state.jobId) return;
+            if (!silent) logOutput('resultsLog', `Fetching screening results for job ${state.jobId}...`);
+
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/screening-results`, { method: 'GET' });
+                if (!silent) logOutput('resultsLog', res.data);
+                if (res.ok && res.data.candidates) {
+                    renderLeaderboard(res.data.candidates);
+                    if (res.data.status === 'COMPLETED' && state.pollTimer) {
+                        document.getElementById('autoPollCheckbox').checked = false;
+                        toggleAutoPoll(false);
+                    }
+                }
+            } catch (err) {
+                if (!silent) logOutput('resultsLog', `Error: ${err.message}`);
+            }
+        }
+
+        function renderLeaderboard(candidates) {
+            const wrap = document.getElementById('leaderboardWrap');
+            const tbody = document.getElementById('leaderboardBody');
+            wrap.classList.remove('hidden');
+            tbody.innerHTML = '';
+
+            if (!candidates.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No candidates screened yet.</td></tr>';
+                return;
+            }
+
+            candidates.forEach((c, idx) => {
+                const tr = document.createElement('tr');
+                const isShortlisted = c.decision === 'SHORTLISTED';
+                tr.innerHTML = `
+                    <td><strong>#${idx + 1}</strong></td>
+                    <td><strong>${c.candidate_name || c.candidate_id}</strong></td>
+                    <td><code>${c.candidate_id}</code></td>
+                    <td><strong>${c.final_score !== undefined ? c.final_score.toFixed(3) : 'N/A'}</strong></td>
+                    <td><span class="badge ${isShortlisted ? 'badge-success' : 'badge-warning'}">${c.decision || 'UNDECIDED'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="openCandidateReport('${c.candidate_id}', '${encodeURIComponent(c.candidate_name || '')}')">
+                            📑 View HR Report
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function openCandidateReport(candidateId, encodedName) {
+            if (!state.jobId) return;
+            const card = document.getElementById('recruiterReportCard');
+            const nameEl = document.getElementById('reportCandidateName');
+            const content = document.getElementById('reportContentArea');
+
+            nameEl.innerText = decodeURIComponent(encodedName) || candidateId;
+            content.innerHTML = '<p>Loading candidate evaluation report...</p>';
+            card.classList.remove('hidden');
+
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/candidates/${candidateId}/report`, { method: 'GET' });
+                if (res.ok && res.data) {
+                    renderReportContent(res.data);
+                } else {
+                    content.innerHTML = `<p style="color: var(--danger);">Failed to load report: ${res.data?.error || 'Unknown error'}</p>`;
+                }
+            } catch (err) {
+                content.innerHTML = `<p style="color: var(--danger);">Network error: ${err.message}</p>`;
+            }
+        }
+
+        function renderReportContent(data) {
+            const content = document.getElementById('reportContentArea');
+            let html = `
+                <div style="display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap;">
+                    <div><strong>Final Score:</strong> <code>${data.final_score || 'N/A'}</code></div>
+                    <div><strong>Decision:</strong> <span class="badge badge-success">${data.decision || 'SHORTLISTED'}</span></div>
+                    <div><strong>Rubric Version:</strong> <code>${data.rubric_version || 'v1'}</code></div>
+                </div>
+            `;
+
+            if (data.criteria_scores && data.criteria_scores.length > 0) {
+                html += `<h5 style="margin-top: 12px; font-weight: 700;">Criteria Breakdown & Evidence Quotes:</h5><div class="table-wrap"><table>
+                    <thead><tr><th>Criterion</th><th>Score</th><th>Evidence Cited From Resume</th></tr></thead><tbody>`;
+                data.criteria_scores.forEach(cs => {
+                    html += `<tr>
+                        <td><strong>${cs.criterion_name}</strong></td>
+                        <td>${cs.score}/5</td>
+                        <td style="font-style: italic; color: #334155;">"${cs.evidence_quote || 'Direct match with JD qualifications.'}"</td>
+                    </tr>`;
+                });
+                html += `</tbody></table></div>`;
+            }
+
+            if (data.interview_questions && data.interview_questions.length > 0) {
+                html += `<h5 style="margin-top: 16px; font-weight: 700;">Tailored Interview Questions for Recruiter:</h5><ol style="margin-left: 20px; font-size: 13px;">`;
+                data.interview_questions.forEach(q => {
+                    html += `<li>${q}</li>`;
+                });
+                html += `</ol>`;
+            }
+
+            content.innerHTML = html;
+        }
+
+        function closeReportCard() {
+            document.getElementById('recruiterReportCard').classList.add('hidden');
+        }
+
+        // Step 7: Review Queue Handlers
+        async function fetchReviewQueue() {
+            if (!state.jobId) return alert('Please select a job first.');
+            logOutput('reviewQueueLog', `Checking review queue for job ${state.jobId}...`);
+
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/review-queue`, { method: 'GET' });
+                logOutput('reviewQueueLog', res.data);
+                if (res.ok && res.data.items) {
+                    renderReviewQueue(res.data.items);
+                }
+            } catch (err) {
+                logOutput('reviewQueueLog', `Error: ${err.message}`);
+            }
+        }
+
+        function renderReviewQueue(items) {
+            const wrap = document.getElementById('reviewQueueWrap');
+            const tbody = document.getElementById('reviewQueueBody');
+            wrap.classList.remove('hidden');
+            tbody.innerHTML = '';
+
+            if (!items.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No candidates in review queue! Pipeline running cleanly.</td></tr>';
+                return;
+            }
+
+            items.forEach(it => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><code>${it.candidate_id}</code></td>
+                    <td><strong>${it.flag_reason || 'Borderline'}</strong></td>
+                    <td><span class="badge ${it.risk_level === 'HIGH' ? 'badge-danger' : 'badge-warning'}">${it.risk_level || 'MEDIUM'}</span></td>
+                    <td>${it.score !== undefined ? it.score : 'N/A'}</td>
+                    <td><span class="badge badge-info">${it.status}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-success" onclick="reviewAction('${it.candidate_id}', 'promote')">Promote</button>
+                        <button class="btn btn-sm btn-danger" onclick="reviewAction('${it.candidate_id}', 'confirm_reject')">Confirm Reject</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function reviewAction(candidateId, action) {
+            if (!state.jobId) return;
+            logOutput('reviewQueueLog', `Submitting action '${action}' for candidate ${candidateId}...`);
+            try {
+                const res = await apiFetch(`/jobs/${state.jobId}/review-queue/${candidateId}/action`, {
+                    method: 'POST',
+                    body: JSON.stringify({ action })
+                });
+                logOutput('reviewQueueLog', res.data);
+                alert(`Action '${action}' applied.`);
+                fetchReviewQueue();
+                refreshScreeningStatus();
+            } catch (err) {
+                logOutput('reviewQueueLog', `Error: ${err.message}`);
+            }
+        }
+
+
+        // =====================================================================
+        // CANDIDATE PORTAL WORKFLOW HANDLERS (PUBLIC / UNPROTECTED)
+        // =====================================================================
+
+        function syncJobFromRecruiter() {
+            if (state.jobId) {
+                document.getElementById('candidateJobId').value = state.jobId;
+                fetchCandidateJob();
+            } else {
+                alert('No active Job ID in Recruiter tab yet. Create one first!');
+            }
+        }
+
+        async function fetchCandidateJob() {
+            const jId = document.getElementById('candidateJobId').value.trim();
+            if (!jId) return alert('Please enter a Job ID.');
+            logOutput('candidateJobLog', `Fetching public job posting ${jId}...`);
+
+            try {
+                const res = await fetch(`${getApiUrl()}/jobs/${jId}`);
+                const data = await res.json();
+                logOutput('candidateJobLog', data);
+
+                if (res.ok) {
+                    const card = document.getElementById('candidateJobCard');
+                    card.classList.remove('hidden');
+                    document.getElementById('publicJobTitle').innerText = data.title;
+                    document.getElementById('publicJobStatus').innerText = data.status || 'OPEN';
+                    document.getElementById('publicJobDesc').innerText = data.description || '';
+                } else {
+                    alert(`Job not found: ${data.error || 'Check Job ID'}`);
+                }
+            } catch (err) {
+                logOutput('candidateJobLog', `Network error: ${err.message}`);
+            }
+        }
+
+        function fillSampleCandidate() {
+            document.getElementById('applicantName').value = 'Taylor Jordan';
+            document.getElementById('applicantEmail').value = 'taylor.jordan@example.com';
+        }
+
+        async function submitApplicationAndUpload() {
+            const jId = document.getElementById('candidateJobId').value.trim();
+            const name = document.getElementById('applicantName').value.trim();
+            const email = document.getElementById('applicantEmail').value.trim();
+            const fileInput = document.getElementById('applicantResumeFile');
+
+            if (!jId) return alert('Please provide the Job ID (Step 1).');
+            if (!name || !email) return alert('Please enter applicant name and email.');
+            if (!fileInput.files.length) return alert('Please select a PDF resume to upload.');
+
+            const file = fileInput.files[0];
+            const spinner = document.getElementById('uploadSpinner');
+            spinner.classList.remove('hidden');
+
+            logOutput('candidateUploadLog', '1. Requesting application registration and presigned S3 URL...');
+
+            try {
+                // Step A: Register application with backend API
+                const regRes = await fetch(`${getApiUrl()}/jobs/${jId}/applications`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        candidate_name: name,
+                        candidate_email: email
+                    })
+                });
+
+                const regData = await regRes.json();
+                if (!regRes.ok) {
+                    spinner.classList.add('hidden');
+                    logOutput('candidateUploadLog', regData);
+                    return alert(`Application failed: ${regData.error || 'Server error'}`);
+                }
+
+                logOutput('candidateUploadLog', {
+                    registration: 'Application Created',
+                    application_id: regData.application_id,
+                    candidate_access_token: regData.candidate_access_token,
+                    upload_url: regData.upload_url
+                });
+
+                // Save tokens
+                state.candidateAppId = regData.application_id;
+                state.candidateToken = regData.candidate_access_token;
+                localStorage.setItem('candidate_app_id', state.candidateAppId);
+                localStorage.setItem('candidate_token', state.candidateToken);
+
+                // Update UI elements
+                document.getElementById('dispAppId').innerText = regData.application_id;
+                document.getElementById('dispAppToken').innerText = regData.candidate_access_token;
+                document.getElementById('candidateTokenCard').classList.remove('hidden');
+                document.getElementById('trackAppId').value = regData.application_id;
+                document.getElementById('feedbackAppId').value = regData.application_id;
+                document.getElementById('feedbackToken').value = regData.candidate_access_token;
+
+                // Step B: Direct S3 PUT
+                logOutput('candidateUploadLog', '2. Performing direct S3 presigned PUT upload...');
+                const s3Res = await fetch(regData.upload_url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/pdf' },
+                    body: file
+                });
+
+                spinner.classList.add('hidden');
+
+                if (s3Res.ok) {
+                    logOutput('candidateUploadLog', '✅ SUCCESS! PDF uploaded directly to AWS S3. Background indexing worker will now process the document.');
+                    alert('Application & Resume uploaded successfully! Check Step 3 in ~30 seconds for background indexing status.');
+                    trackApplicationStatus();
+                } else {
+                    logOutput('candidateUploadLog', `❌ S3 Upload Failed with status ${s3Res.status} ${s3Res.statusText}`);
+                    alert(`S3 Upload Failed. Status: ${s3Res.status}`);
+                }
+            } catch (err) {
+                spinner.classList.add('hidden');
+                logOutput('candidateUploadLog', `Network error: ${err.message}`);
+            }
+        }
+
+        async function trackApplicationStatus() {
+            const jId = document.getElementById('candidateJobId').value.trim();
+            const appId = document.getElementById('trackAppId').value.trim();
+            if (!jId || !appId) return alert('Both Job ID and Application ID are required.');
+
+            logOutput('trackLog', `Checking status for application ${appId}...`);
+            try {
+                const res = await fetch(`${getApiUrl()}/jobs/${jId}/applications/${appId}/status`);
+                const data = await res.json();
+                logOutput('trackLog', data);
+
+                if (res.ok) {
+                    const card = document.getElementById('statusTrackerCard');
+                    card.classList.remove('hidden');
+                    document.getElementById('stageUpload').innerText = data.s3_resume_key ? 'COMPLETED' : 'PENDING';
+                    document.getElementById('stagePhase1').innerText = data.phase1_status || 'NOT_STARTED';
+                    document.getElementById('stagePhase2').innerText = data.phase2_status || 'NOT_STARTED';
+                    document.getElementById('stageOverall').innerText = data.status || 'PENDING';
+                }
+            } catch (err) {
+                logOutput('trackLog', `Error: ${err.message}`);
+            }
+        }
+
+        async function fetchCandidateFeedback() {
+            const jId = document.getElementById('candidateJobId').value.trim();
+            const appId = document.getElementById('feedbackAppId').value.trim();
+            const token = document.getElementById('feedbackToken').value.trim();
+
+            if (!jId || !appId) return alert('Please enter both Job ID and Application ID.');
+            if (!token) return alert('Please provide your private Candidate Access Token.');
+
+            logOutput('candidateFeedbackLog', `Requesting candidate feedback for application ${appId}...`);
+
+            try {
+                // Pass candidate access token in query param to avoid CORS preflight custom header blocking
+                const res = await fetch(`${getApiUrl()}/jobs/${jId}/applications/${appId}/feedback?token=${encodeURIComponent(token)}`);
+                const data = await res.json();
+                logOutput('candidateFeedbackLog', { status: res.status, body: data });
+
+                const resWrap = document.getElementById('candidateFeedbackResult');
+                const box = document.getElementById('feedbackBox');
+                const title = document.getElementById('feedbackTitle');
+                const body = document.getElementById('feedbackBodyText');
+
+                resWrap.classList.remove('hidden');
+
+                if (res.status === 409) {
+                    // Decision pending
+                    box.className = 'feedback-box pending';
+                    title.innerText = '⏳ Review in Progress';
+                    body.innerText = data.message || 'Your application is currently being evaluated by our hiring team. Constructive feedback will be visible once all assessments are finalized.';
+                } else if (res.status === 200) {
+                    if (data.decision === 'SHORTLISTED') {
+                        box.className = 'feedback-box shortlisted';
+                        title.innerText = '🎉 Congratulations! You have been shortlisted.';
+                        body.innerText = data.message || 'Our recruitment team was highly impressed by your application and will be in touch shortly regarding interview rounds.';
+                    } else if (data.decision === 'REJECTED') {
+                        box.className = 'feedback-box rejected';
+                        title.innerText = 'Constructive Feedback & Areas for Growth';
+                        body.innerText = data.feedback || 'Thank you for taking the time to apply. While we are unable to advance your application at this time, we encourage you to review our feedback to support your future applications.';
+                    } else {
+                        box.className = 'feedback-box pending';
+                        title.innerText = `Application Status: ${data.decision || 'PENDING'}`;
+                        body.innerText = JSON.stringify(data, null, 2);
+                    }
+                } else {
+                    box.className = 'feedback-box rejected';
+                    title.innerText = `Error (${res.status})`;
+                    body.innerText = data.error || 'Could not retrieve feedback. Ensure your access token is valid.';
+                }
+            } catch (err) {
+                logOutput('candidateFeedbackLog', `Network error: ${err.message}`);
+            }
         }
     </script>
 </body>

@@ -97,6 +97,12 @@ class GroqClient(LLMClient):
     def _get_client(self):
         if self._client is None:
             if not self.api_key:
+                try:
+                    from api.auth.secrets import get_groq_api_key
+                    self.api_key = get_groq_api_key()
+                except Exception:
+                    pass
+            if not self.api_key:
                 raise ValueError("GROQ_API_KEY environment variable is not set. Please configure your API key.")
             from groq import Groq
             self._client = Groq(api_key=self.api_key)
@@ -141,6 +147,20 @@ class GroqClient(LLMClient):
                 )
 
             except Exception as exc:
+                err_str = str(exc)
+                if "model_not_found" in err_str or "does not exist or you do not have access" in err_str:
+                    fallback_models = ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"]
+                    switched = False
+                    for fb in fallback_models:
+                        if fb != kwargs.get("model"):
+                            logger.warning("Model %s unavailable on Groq, switching to fallback model %s", kwargs.get("model"), fb)
+                            kwargs["model"] = fb
+                            target_model = fb
+                            switched = True
+                            break
+                    if switched:
+                        continue
+
                 attempt += 1
                 if attempt > self.max_retries:
                     logger.error("Groq request failed after %d attempts: %s", attempt, exc)

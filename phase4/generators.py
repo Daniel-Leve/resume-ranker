@@ -107,19 +107,22 @@ def generate_hr_report(
         interview_questions=interview_questions,
     )
 
-    # Save to disk
-    job_report_dir = Path(reports_dir) / job_id
-    job_report_dir.mkdir(parents=True, exist_ok=True)
+    # Save to disk (best-effort local storage)
+    try:
+        job_report_dir = Path(reports_dir) / job_id
+        job_report_dir.mkdir(parents=True, exist_ok=True)
 
-    json_path = job_report_dir / f"hr_report_{candidate_id}.json"
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(report.model_dump(), f, indent=2)
+        json_path = job_report_dir / f"hr_report_{candidate_id}.json"
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump(report.model_dump(), f, indent=2)
 
-    md_path = job_report_dir / f"hr_report_{candidate_id}.md"
-    with open(md_path, "w", encoding="utf-8") as f:
-        f.write(_format_hr_report_markdown(report))
+        md_path = job_report_dir / f"hr_report_{candidate_id}.md"
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(_format_hr_report_markdown(report))
 
-    logger.info("Saved HR report for %s to %s", candidate_id, md_path)
+        logger.info("Saved HR report for %s to %s", candidate_id, md_path)
+    except OSError as exc:
+        logger.warning("Could not save HR report to disk: %s", exc)
     return report
 
 
@@ -224,12 +227,13 @@ def generate_candidate_feedback(
         actionable_suggestion=actionable_suggestion,
     )
 
-    # Save to disk: feedback/<resume_id>.md
-    feedback_dir = Path(feedback_dir)
-    feedback_dir.mkdir(parents=True, exist_ok=True)
-    out_file = feedback_dir / f"{resume_id}.md"
+    # Save to disk: feedback/<resume_id>.md (best-effort local storage)
+    try:
+        feedback_dir = Path(feedback_dir)
+        feedback_dir.mkdir(parents=True, exist_ok=True)
+        out_file = feedback_dir / f"{resume_id}.md"
 
-    md_content = f"""# Application Feedback
+        md_content = f"""# Application Feedback
 
 Thank you for taking the time to apply for role `{job_id}`.
 
@@ -244,8 +248,10 @@ For this specific position, the technical review looked for explicit evidence in
 
 We wish you the very best in your career journey and future applications.
 """
-    with open(out_file, "w", encoding="utf-8") as f:
-        f.write(md_content)
+        with open(out_file, "w", encoding="utf-8") as f:
+            f.write(md_content)
+        logger.info("Saved candidate feedback for %s to %s", resume_id, out_file)
+    except OSError as exc:
+        logger.warning("Could not save candidate feedback to disk: %s", exc)
 
-    logger.info("Saved candidate feedback for %s to %s", resume_id, out_file)
     return feedback

@@ -18,7 +18,7 @@ EXPLANATION_VERSION = "1.0.0"
 
 # ── Groq LLM Configuration ──────────────────────────────────────────────────
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # ── Free-Tier Rate Limits & Budget ───────────────────────────────────────────
 RATE_LIMIT_RPM = int(os.environ.get("PHASE4_RATE_LIMIT_RPM", "30"))
@@ -33,19 +33,25 @@ if not REDACT_PII:
     logger.warning("WARNING: REDACT_PII is disabled! Personal data may be sent in plaintext.")
 
 # ── Storage Paths (Pure File-Based JSON — Zero SQLite) ────────────────────────
-DATA_DIR = Path(os.environ.get("PHASE4_DATA_DIR", "data"))
+IS_LAMBDA = bool(os.environ.get("AWS_LAMBDA_FUNCTION_NAME") or os.environ.get("LAMBDA_TASK_ROOT"))
+_DEFAULT_BASE_DIR = "/tmp/phase4" if IS_LAMBDA else "."
+
+DATA_DIR = Path(os.environ.get("PHASE4_DATA_DIR", f"{_DEFAULT_BASE_DIR}/data" if IS_LAMBDA else "data"))
 BUDGET_FILE = DATA_DIR / "budget_usage.json"
 CACHE_DIR = DATA_DIR / "cache"
 REVIEW_QUEUE_FILE = DATA_DIR / "review_queue.json"
 REVIEW_HISTORY_FILE = DATA_DIR / "review_queue_history.json"
 
-RUBRICS_DIR = Path(os.environ.get("PHASE4_RUBRICS_DIR", "rubrics"))
-REPORTS_DIR = Path(os.environ.get("PHASE4_REPORTS_DIR", "reports"))
-FEEDBACK_DIR = Path(os.environ.get("PHASE4_FEEDBACK_DIR", "feedback"))
+RUBRICS_DIR = Path(os.environ.get("PHASE4_RUBRICS_DIR", f"{_DEFAULT_BASE_DIR}/rubrics" if IS_LAMBDA else "rubrics"))
+REPORTS_DIR = Path(os.environ.get("PHASE4_REPORTS_DIR", f"{_DEFAULT_BASE_DIR}/reports" if IS_LAMBDA else "reports"))
+FEEDBACK_DIR = Path(os.environ.get("PHASE4_FEEDBACK_DIR", f"{_DEFAULT_BASE_DIR}/feedback" if IS_LAMBDA else "feedback"))
 
-# Ensure local directories exist
+# Ensure local directories exist (safely ignored if read-only filesystem or restricted environment)
 for directory in (DATA_DIR, CACHE_DIR, RUBRICS_DIR, REPORTS_DIR, FEEDBACK_DIR):
-    directory.mkdir(parents=True, exist_ok=True)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning("Could not create local storage directory %s: %s", directory, exc)
 
 # ── Evidence & Verification Thresholds ───────────────────────────────────────
 MAX_EXCERPT_CHARS = int(os.environ.get("PHASE4_MAX_EXCERPT_CHARS", "250"))

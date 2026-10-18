@@ -106,8 +106,11 @@ class DailyBudget:
 
         # Ensure directory structure for file-based fallback
         if self.mongo_db is None:
-            self.budget_file.parent.mkdir(parents=True, exist_ok=True)
-            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                self.budget_file.parent.mkdir(parents=True, exist_ok=True)
+                self.cache_dir.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                logger.warning("Could not create budget directories: %s", exc)
 
     def _read_budget_data(self) -> Dict[str, Dict[str, int]]:
         if not self.budget_file.exists():
@@ -120,10 +123,13 @@ class DailyBudget:
             return {}
 
     def _write_budget_data(self, data: Dict[str, Dict[str, int]]) -> None:
-        temp_file = self.budget_file.with_suffix(".tmp")
-        with open(temp_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        temp_file.replace(self.budget_file)
+        try:
+            temp_file = self.budget_file.with_suffix(".tmp")
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            temp_file.replace(self.budget_file)
+        except OSError as exc:
+            logger.warning("Could not write budget file %s: %s", self.budget_file, exc)
 
     def get_usage_today(self, date_str: Optional[str] = None) -> Dict[str, int]:
         """Returns usage stats for the specified day (default today UTC)."""
@@ -327,6 +333,9 @@ class DailyBudget:
             return key
 
         cache_path = self.cache_dir / f"{key}.json"
-        with open(cache_path, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2)
+        try:
+            with open(cache_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, indent=2)
+        except OSError as exc:
+            logger.warning("Could not write cache file %s: %s", cache_path, exc)
         return key

@@ -38,7 +38,10 @@ class ReviewQueueManager:
         self._lock = Lock()
 
         if self.mongo_db is None:
-            self.queue_file.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                self.queue_file.parent.mkdir(parents=True, exist_ok=True)
+            except OSError as exc:
+                logger.warning("Could not create review queue directory: %s", exc)
 
     def _load_json(self, path: Path) -> List[Dict[str, Any]]:
         if not path.exists():
@@ -51,10 +54,13 @@ class ReviewQueueManager:
             return []
 
     def _save_json(self, path: Path, data: List[Dict[str, Any]]) -> None:
-        temp_file = path.with_suffix(".tmp")
-        with open(temp_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-        temp_file.replace(path)
+        try:
+            temp_file = path.with_suffix(".tmp")
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            temp_file.replace(path)
+        except OSError as exc:
+            logger.warning("Could not save review queue file %s: %s", path, exc)
 
     def enqueue(
         self,

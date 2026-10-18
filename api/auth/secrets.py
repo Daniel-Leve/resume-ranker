@@ -102,6 +102,26 @@ def get_voyage_api_key() -> str:
     return key
 
 
+def get_groq_api_key() -> str:
+    """
+    Return the Groq API key, preferring Secrets Manager over env var.
+
+    Order of precedence:
+      1. GROQ_API_KEY_SECRET_ARN → Secrets Manager (production)
+      2. GROQ_API_KEY env var directly (local dev / legacy)
+    """
+    arn = os.environ.get("GROQ_API_KEY_SECRET_ARN", "").strip()
+    if arn:
+        return get_secret_string(arn)
+    key = os.environ.get("GROQ_API_KEY", "")
+    if not key:
+        raise RuntimeError(
+            "Neither GROQ_API_KEY_SECRET_ARN nor GROQ_API_KEY is set. "
+            "Set GROQ_API_KEY for local development."
+        )
+    return key
+
+
 def clear_cache_for_testing() -> None:
     """
     Clear the in-process secret cache.

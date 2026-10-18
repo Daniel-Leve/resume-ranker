@@ -62,7 +62,10 @@ def build_rubric(
 
     jd_id = jd_id.strip()
     rubrics_dir = Path(rubrics_dir)
-    rubrics_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        rubrics_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.warning("Could not create rubrics directory %s: %s", rubrics_dir, exc)
 
     messages = [
         {"role": "system", "content": RUBRIC_SYSTEM_PROMPT},
@@ -84,12 +87,14 @@ def build_rubric(
         criteria=raw_rubric_schema.criteria,
     )
 
-    # Save draft rubric to file
-    out_file = rubrics_dir / f"{jd_id}_rubric_{version}.json"
-    with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(rubric.model_dump(), f, indent=2)
-
-    logger.info("Saved DRAFT rubric with %d criteria to %s", len(rubric.criteria), out_file)
+    # Save draft rubric to file (best-effort local cache)
+    try:
+        out_file = rubrics_dir / f"{jd_id}_rubric_{version}.json"
+        with open(out_file, "w", encoding="utf-8") as f:
+            json.dump(rubric.model_dump(), f, indent=2)
+        logger.info("Saved DRAFT rubric with %d criteria to %s", len(rubric.criteria), out_file)
+    except OSError as exc:
+        logger.warning("Could not save rubric file %s: %s", rubrics_dir, exc)
     return rubric
 
 
@@ -169,8 +174,11 @@ def approve_rubric(
     rubric.approved_at = datetime.now(timezone.utc).isoformat()
     rubric.approved_by = approved_by or "recruiter"
 
-    with open(rubric_file, "w", encoding="utf-8") as f:
-        json.dump(rubric.model_dump(), f, indent=2)
+    try:
+        with open(rubric_file, "w", encoding="utf-8") as f:
+            json.dump(rubric.model_dump(), f, indent=2)
+    except OSError as exc:
+        logger.warning("Could not write approved rubric file %s: %s", rubric_file, exc)
 
     logger.info("Rubric for %s (%s) has been APPROVED by %s.", jd_id, version, rubric.approved_by)
     return rubric
