@@ -29,13 +29,26 @@ _VALID_INPUT_TYPES: frozenset[str] = frozenset({"document", "query"})
 
 
 def _get_client() -> voyageai.Client:
-    """Create a Voyage AI client from the configured API key."""
-    if not config.VOYAGE_API_KEY:
+    """Create a Voyage AI client from the configured API key.
+
+    Resolution order:
+    1. ``config.VOYAGE_API_KEY`` (env var ``VOYAGE_API_KEY``)
+    2. AWS Secrets Manager via ``api.auth.secrets.get_voyage_api_key()``
+       (used in Lambda where the plaintext key is not injected directly).
+    """
+    api_key = config.VOYAGE_API_KEY
+    if not api_key:
+        try:
+            from api.auth.secrets import get_voyage_api_key  # noqa: PLC0415
+            api_key = get_voyage_api_key()
+        except Exception:  # noqa: BLE001
+            pass
+    if not api_key:
         raise EnvironmentError(
             "VOYAGE_API_KEY is not set. "
             "Copy .env.example to .env and add your Voyage API key."
         )
-    return voyageai.Client(api_key=config.VOYAGE_API_KEY)
+    return voyageai.Client(api_key=api_key)
 
 
 def embed_texts(

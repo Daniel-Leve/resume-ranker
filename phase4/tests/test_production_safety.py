@@ -170,22 +170,25 @@ class TestPersistentStorageAndConcurrency:
         db = MockDatabase()
         budget = DailyBudget(mongo_db=db, daily_token_limit=10000)
 
+        from phase4.daily_budget import _today_utc
+        today = _today_utc()
+
         # Concurrently simulate 2 workers recording usage
-        res1 = budget.record_usage(prompt_tokens=1500, completion_tokens=500, requests=1, date_str="2026-10-15")
+        res1 = budget.record_usage(prompt_tokens=1500, completion_tokens=500, requests=1, date_str=today)
         assert res1["total_tokens"] == 2000
         assert res1["request_count"] == 1
 
-        res2 = budget.record_usage(prompt_tokens=2000, completion_tokens=1000, requests=1, date_str="2026-10-15")
+        res2 = budget.record_usage(prompt_tokens=2000, completion_tokens=1000, requests=1, date_str=today)
         assert res2["total_tokens"] == 5000
         assert res2["request_count"] == 2
 
-        usage = budget.get_usage_today(date_str="2026-10-15")
+        usage = budget.get_usage_today(date_str=today)
         assert usage["total_tokens"] == 5000
         assert usage["request_count"] == 2
         assert not budget.is_budget_exceeded()
 
         # Trip budget threshold (> 90% of 10000 = 9000 tokens)
-        budget.record_usage(prompt_tokens=4500, completion_tokens=0, requests=1, date_str="2026-10-15")
+        budget.record_usage(prompt_tokens=4500, completion_tokens=0, requests=1, date_str=today)
         assert budget.is_budget_exceeded()
 
     def test_review_queue_mongo_persistence_and_audit_provenance(self):

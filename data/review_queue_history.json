@@ -202,5 +202,39 @@
     "resolved_at": "2026-10-15T17:33:52.785602+00:00",
     "resolved_by": "recruiter-sub-100",
     "override_notes": "Approved after manual resume inspection"
+  },
+  {
+    "resume_id": "cand-flagged-01",
+    "candidate_id": "cand-flagged-01",
+    "job_id": "job-101",
+    "tenant_id": null,
+    "status": "PROMOTED",
+    "flag_reasons": [
+      "possible_false_negative"
+    ],
+    "rerank_rank": 8,
+    "weighted_score": 0.92,
+    "payload": {},
+    "created_at": "2026-10-19T14:53:21.432660+00:00",
+    "resolved_at": "2026-10-19T14:53:22.399972+00:00",
+    "resolved_by": "recruiter-sub-100",
+    "override_notes": "Approved after manual resume inspection"
+  },
+  {
+    "resume_id": "cand-flagged-01",
+    "candidate_id": "cand-flagged-01",
+    "job_id": "job-101",
+    "tenant_id": null,
+    "status": "PROMOTED",
+    "flag_reasons": [
+      "possible_false_negative"
+    ],
+    "rerank_rank": 8,
+    "weighted_score": 0.92,
+    "payload": {},
+    "created_at": "2026-10-19T14:59:14.332880+00:00",
+    "resolved_at": "2026-10-19T14:59:17.481563+00:00",
+    "resolved_by": "recruiter-sub-100",
+    "override_notes": "Approved after manual resume inspection"
   }
 ]

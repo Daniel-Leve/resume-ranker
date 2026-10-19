@@ -133,10 +133,15 @@ class TestIndexingWorkerReliability:
 
         # Embedder should NOT be called because hash matches
         mock_embed.assert_not_called()
-        # Status should transition to INDEXED
-        mock_db["applications"].update_one.assert_called_with(
+        # Status should transition to INDEXED — worker now makes multiple update_one calls
+        # (phase1 complete, phase2 indexing, phase2 indexed, root indexed), so use assert_any_call
+        mock_db["applications"].update_one.assert_any_call(
             {"_id": "app-100"},
             {"$set": {"phase2_status": "INDEXED"}}
+        )
+        mock_db["applications"].update_one.assert_any_call(
+            {"_id": "app-100"},
+            {"$set": {"status": "INDEXED"}}
         )
 
     @patch("api.workers.indexing_worker._get_mongo")

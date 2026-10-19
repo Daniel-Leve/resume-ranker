@@ -646,7 +646,10 @@ class TestPublicBoundaryAndTenantIsolation:
             data = json.loads(res["body"])
             assert "tenant_id" not in data
             assert "internal_notes" not in data
+            # Raw S3 path must NOT be exposed — only a boolean upload flag
             assert "s3_resume_key" not in data
+            assert "s3_uploaded" in data
+            assert data["s3_uploaded"] is True  # s3_resume_key was set in fixture
             assert data["status"] == "PROCESSING"
 
 

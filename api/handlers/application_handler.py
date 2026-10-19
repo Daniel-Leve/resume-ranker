@@ -1597,6 +1597,7 @@ def _get_candidate_application_status(event: dict) -> dict:
         "status": app.get("status", "PENDING_UPLOAD"),
         "phase1_status": app.get("phase1_status", "NOT_STARTED"),
         "phase2_status": app.get("phase2_status", "NOT_STARTED"),
+        "s3_uploaded": bool(app.get("s3_resume_key")),
         "created_at": app.get("created_at"),
     })
 

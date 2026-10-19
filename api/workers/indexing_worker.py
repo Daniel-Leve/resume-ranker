@@ -97,6 +97,13 @@ def _index_single(s3_key: str) -> None:
         if data.get("status") != "SUCCEEDED":
             raise ValueError(f"Phase 1 status is not SUCCEEDED: {data.get('status')}")
 
+        # ── Mark Phase 1 complete and move overall status to PROCESSING ──────
+        if path_ctx.application_id:
+            db["applications"].update_one(
+                {"_id": path_ctx.application_id},
+                {"$set": {"phase1_status": "COMPLETED", "status": "PROCESSING"}},
+            )
+
         text: str = data.get("text", "").strip()
         if not text:
             raise ValueError("Phase 1 extracted JSON has empty text field.")
@@ -112,6 +119,11 @@ def _index_single(s3_key: str) -> None:
         if existing_hash == content_hash:
             logger.info("Candidate %s: unchanged (hash match) — skipping.", candidate_id)
             _update_application_status(db, path_ctx.application_id, "INDEXED")
+            if path_ctx.application_id:
+                db["applications"].update_one(
+                    {"_id": path_ctx.application_id},
+                    {"$set": {"status": "INDEXED"}},
+                )
             return
 
         if existing_hash and existing_hash != content_hash:
@@ -183,6 +195,11 @@ def _index_single(s3_key: str) -> None:
                     "resume_versions.$.content_hash": content_hash,
                     "resume_versions.$.indexed_at": datetime.now(timezone.utc).isoformat(),
                 }},
+            )
+            # Also update the root status field so the tracker shows INDEXED
+            db["applications"].update_one(
+                {"_id": path_ctx.application_id},
+                {"$set": {"status": "INDEXED"}},
             )
 
     except Exception as exc:

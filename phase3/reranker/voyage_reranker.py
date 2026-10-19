@@ -15,12 +15,25 @@ logger = logging.getLogger(__name__)
 
 
 def _get_client() -> voyageai.Client:
-    """Create a Voyage AI client."""
-    if not config.VOYAGE_API_KEY:
+    """Create a Voyage AI client.
+
+    Resolution order:
+    1. ``config.VOYAGE_API_KEY`` (env var ``VOYAGE_API_KEY``)
+    2. AWS Secrets Manager via ``api.auth.secrets.get_voyage_api_key()``
+       (used in Lambda where the plaintext key is not injected directly).
+    """
+    api_key = config.VOYAGE_API_KEY
+    if not api_key:
+        try:
+            from api.auth.secrets import get_voyage_api_key  # noqa: PLC0415
+            api_key = get_voyage_api_key()
+        except Exception:  # noqa: BLE001
+            pass
+    if not api_key:
         raise EnvironmentError(
             "VOYAGE_API_KEY is not set in environment or .env file."
         )
-    return voyageai.Client(api_key=config.VOYAGE_API_KEY)
+    return voyageai.Client(api_key=api_key)
 
 
 def rerank_documents(

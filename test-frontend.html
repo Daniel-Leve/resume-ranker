@@ -1700,7 +1700,7 @@ Requirements:
                 if (res.ok) {
                     const card = document.getElementById('statusTrackerCard');
                     card.classList.remove('hidden');
-                    document.getElementById('stageUpload').innerText = data.s3_resume_key ? 'COMPLETED' : 'PENDING';
+                    document.getElementById('stageUpload').innerText = (data.s3_uploaded || data.s3_resume_key) ? 'COMPLETED' : 'PENDING';
                     document.getElementById('stagePhase1').innerText = data.phase1_status || 'NOT_STARTED';
                     document.getElementById('stagePhase2').innerText = data.phase2_status || 'NOT_STARTED';
                     document.getElementById('stageOverall').innerText = data.status || 'PENDING';
