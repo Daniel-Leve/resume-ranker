@@ -92,8 +92,9 @@ def reconcile_decision(
 
     elif is_shortlisted and not all_must_haves_met:
         # Candidate shortlisted by reranker but missing some must-haves!
-        # Per specification: keep shortlisted, but add the gaps to the HR report as "high similarity, weak evidence"
+        requires_human_review = True
         flag_notes.append("high_similarity_weak_evidence: candidate shortlisted but has missing/partial must-haves")
+        reasons.append("High search similarity, but candidate failed one or more must-have criteria.")
 
     # 3. Final Decision Synthesis
     if requires_human_review:

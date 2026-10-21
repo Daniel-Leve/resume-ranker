@@ -369,8 +369,8 @@ class TestDecisionReconciler:
             ]
         )
         decision = reconcile_decision("cand-short", is_shortlisted=True, evaluation=evaluation, rubric=sample_rubric, rerank_rank=2)
-        # Keeps shortlisted (AUTO), but attaches flag note
-        assert decision.decision == "AUTO"
+        # Routes to HUMAN_REVIEW due to missing must-have, and attaches flag note
+        assert decision.decision == "HUMAN_REVIEW"
         assert any("high_similarity_weak_evidence" in f for f in decision.flag_notes)
 
     def test_poor_parse_quality_routes_to_human_review(self, sample_rubric):

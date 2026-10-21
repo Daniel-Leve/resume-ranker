@@ -1071,7 +1071,6 @@ def _post_review_queue_action(event: dict) -> dict:
                     job_id=job_id,
                     tenant_id=tenant_id,
                 )
-                return _response(200, resolved.model_dump())
             except KeyError:
                 resolved = GLOBAL_REVIEW_QUEUE.resolve(
                     resume_id=candidate_id,
@@ -1079,7 +1078,88 @@ def _post_review_queue_action(event: dict) -> dict:
                     notes=notes,
                     resolved_by=auth.user_sub,
                 )
-                return _response(200, resolved.model_dump())
+
+            # Synchronize application decision status in MongoDB
+            if action in ("promote", "confirm_reject"):
+                target_decision = "SHORTLISTED" if action == "promote" else "REJECTED"
+                app_filter = {
+                    "$or": [{"candidate_id": candidate_id}, {"_id": candidate_id}],
+                    "job_id": job_id,
+                }
+                if tenant_id:
+                    app_filter["tenant_id"] = tenant_id
+
+                app_updates = {
+                    "decision": target_decision,
+                    "status": target_decision,
+                    "decision_status": target_decision,
+                    "updated_at": _now_iso(),
+                }
+
+                if action == "confirm_reject":
+                    try:
+                        from phase4.generators import generate_candidate_feedback
+                        from phase4.schemas import ResumeEvaluation, JobRubric
+
+                        eval_data = None
+                        if resolved and getattr(resolved, "payload", None) and "evaluation" in resolved.payload:
+                            eval_data = resolved.payload["evaluation"]
+
+                        app_doc = db["applications"].find_one(app_filter)
+                        rubric_obj = None
+                        if job and job.get("rubric"):
+                            rubric_obj = JobRubric.model_validate(job["rubric"])
+
+                        if eval_data and rubric_obj:
+                            eval_obj = ResumeEvaluation.model_validate(eval_data)
+                            fb_obj = generate_candidate_feedback(
+                                resume_id=candidate_id,
+                                job_id=job_id,
+                                evaluation=eval_obj,
+                                rubric=rubric_obj,
+                            )
+                            app_updates["candidate_feedback"] = fb_obj.model_dump()
+                        elif app_doc and app_doc.get("hr_report"):
+                            hr_rep = app_doc["hr_report"]
+                            gaps = [
+                                m["description"] for m in hr_rep.get("match_matrix", [])
+                                if m.get("status") in ("not_evidenced", "partial") and m.get("type") == "must"
+                            ]
+                            if not gaps:
+                                gaps = [g.split("] ")[-1].split(" - ")[0] for g in hr_rep.get("gaps", [])][:3]
+                            what_showed = "Your resume highlights commendable foundational technical skills and professional background."
+                            actionable = (
+                                "When tailoring your resume for future opportunities, consider adding bullet points detailing "
+                                "the architecture, specific tools used, and measurable business outcomes for your most impactful projects."
+                            )
+                            gaps_list = gaps[:3] if gaps else ["Specific core technical requirements for this role"]
+                            feedback_md = (
+                                f"# Application Feedback\n\n"
+                                f"Thank you for taking the time to apply for role `{job_id}`.\n\n"
+                                f"{what_showed}\n\n"
+                                f"### Areas for Enhancement\n"
+                                f"For this specific position, the technical review looked for explicit evidence in the following key areas:\n"
+                                + "\n".join(f"- {g}" for g in gaps_list) + "\n\n"
+                                f"### Recommendation\n{actionable}\n\n"
+                                f"We wish you the very best in your career journey and future applications."
+                            )
+                            app_updates["candidate_feedback"] = {
+                                "resume_id": candidate_id,
+                                "job_id": job_id,
+                                "what_resume_showed": what_showed,
+                                "gaps": gaps_list,
+                                "actionable_suggestion": actionable,
+                                "feedback_markdown": feedback_md,
+                            }
+                    except Exception as fb_err:
+                        logger.warning("Failed to generate candidate feedback on confirm_reject: %s", fb_err)
+
+                db["applications"].update_many(
+                    app_filter,
+                    {"$set": app_updates}
+                )
+
+            return _response(200, resolved.model_dump())
     except KeyError:
         return _response(404, {"error": f"Candidate {candidate_id} not found in review queue."})
     except Exception as exc:
@@ -1175,6 +1255,7 @@ def _get_candidate_feedback(event: dict) -> dict:
             return _response(200, {
                 "application_id": application_id,
                 "job_id": job_id,
+                "decision": "SHORTLISTED",
                 "decision_status": "SHORTLISTED",
                 "message": "Congratulations! Your application has been shortlisted for further consideration.",
             })
@@ -1183,6 +1264,7 @@ def _get_candidate_feedback(event: dict) -> dict:
             return _response(409, {
                 "application_id": application_id,
                 "job_id": job_id,
+                "decision": decision or "UNDECIDED",
                 "decision_status": decision or "UNDECIDED",
                 "message": "Application review is still underway. Constructive feedback will be published once an authoritative decision is confirmed.",
                 "code": "DECISION_PENDING",
@@ -1210,6 +1292,47 @@ def _get_candidate_feedback(event: dict) -> dict:
                 except Exception:
                     pass
 
+        if not raw_feedback_text and app.get("hr_report"):
+            try:
+                hr_rep = app["hr_report"]
+                gaps = [
+                    m["description"] for m in hr_rep.get("match_matrix", [])
+                    if m.get("status") in ("not_evidenced", "partial") and m.get("type") == "must"
+                ]
+                if not gaps:
+                    gaps = [g.split("] ")[-1].split(" - ")[0] for g in hr_rep.get("gaps", [])][:3]
+                what_showed = "Your resume highlights commendable foundational technical skills and professional background."
+                actionable = (
+                    "When tailoring your resume for future opportunities, consider adding bullet points detailing "
+                    "the architecture, specific tools used, and measurable business outcomes for your most impactful projects."
+                )
+                gaps_list = gaps[:3] if gaps else ["Specific core technical requirements for this role"]
+                raw_feedback_text = (
+                    f"# Application Feedback\n\n"
+                    f"Thank you for taking the time to apply for role `{job_id}`.\n\n"
+                    f"{what_showed}\n\n"
+                    f"### Areas for Enhancement\n"
+                    f"For this specific position, the technical review looked for explicit evidence in the following key areas:\n"
+                    + "\n".join(f"- {g}" for g in gaps_list) + "\n\n"
+                    f"### Recommendation\n{actionable}\n\n"
+                    f"We wish you the very best in your career journey and future applications."
+                )
+                fb_cache = {
+                    "resume_id": app.get("candidate_id") or application_id,
+                    "job_id": job_id,
+                    "what_resume_showed": what_showed,
+                    "gaps": gaps_list,
+                    "actionable_suggestion": actionable,
+                    "feedback_markdown": raw_feedback_text,
+                }
+                app["candidate_feedback"] = fb_cache
+                db["applications"].update_one(
+                    {"_id": app["_id"]},
+                    {"$set": {"candidate_feedback": fb_cache, "updated_at": _now_iso()}}
+                )
+            except Exception as synth_err:
+                logger.warning("Feedback on-the-fly synthesis failed: %s", synth_err)
+
         if not raw_feedback_text:
             return _response(404, {"error": "Feedback content not yet generated for this rejected application."})
 
@@ -1217,7 +1340,9 @@ def _get_candidate_feedback(event: dict) -> dict:
         payload = {
             "application_id": application_id,
             "job_id": job_id,
+            "decision": "REJECTED",
             "decision_status": "REJECTED",
+            "feedback": sanitized_feedback,
             "feedback_markdown": sanitized_feedback,
         }
         if isinstance(app.get("candidate_feedback"), dict):

@@ -101,6 +101,26 @@ class InMemoryCollection:
             return MagicMock(matched_count=1, modified_count=1)
         return MagicMock(matched_count=0, modified_count=0)
 
+    def update_many(self, query, update):
+        matched = 0
+        for d in self.docs:
+            matches = True
+            if query:
+                for k, v in query.items():
+                    if k == "$or" and isinstance(v, list):
+                        if not any(all(d.get(sub_k) == sub_v for sub_k, sub_v in cond.items()) for cond in v):
+                            matches = False
+                            break
+                    elif d.get(k) != v:
+                        matches = False
+                        break
+            if matches:
+                matched += 1
+                if "$set" in update:
+                    for k, v in update["$set"].items():
+                        d[k] = v
+        return MagicMock(matched_count=matched, modified_count=matched)
+
 
 def _mock_mongo(collections_map):
     mock_db = MagicMock()
@@ -308,28 +328,47 @@ class TestPhase4ApiEndpoints:
             weighted_score=0.92,
         )
 
-        # GET /jobs/{job_id}/review-queue
-        res = lambda_handler(_event(
-            "GET", "/jobs/{job_id}/review-queue",
-            path_params={"job_id": "job-101"},
-            claims=recruiter_claims,
-        ), None)
-        assert res["statusCode"] == 200
-        data = json.loads(res["body"])
-        assert data["count"] >= 1
-        assert any(i["resume_id"] == "cand-flagged-01" for i in data["items"])
+        collections = {
+            "jobs": InMemoryCollection([
+                {"_id": "job-101", "job_id": "job-101", "tenant_id": "tenant-100"}
+            ]),
+            "tenants": InMemoryCollection([
+                {"_id": "tenant-100", "tenant_id": "tenant-100", "name": "Acme Corp", "status": "ACTIVE"}
+            ]),
+            "tenant_memberships": InMemoryCollection([
+                {"user_sub": "recruiter-sub-100", "tenant_id": "tenant-100", "role": "ADMIN"}
+            ]),
+            "applications": InMemoryCollection([
+                {"_id": "cand-flagged-01", "candidate_id": "cand-flagged-01", "job_id": "job-101", "tenant_id": "tenant-100", "decision": "UNDECIDED"}
+            ]),
+            "phase4_review_queue": InMemoryCollection(),
+            "phase4_review_history": InMemoryCollection(),
+        }
+        mock_client = _mock_mongo(collections)
 
-        # POST /jobs/{job_id}/review-queue/{candidate_id}/action
-        res = lambda_handler(_event(
-            "POST", "/jobs/{job_id}/review-queue/{candidate_id}/action",
-            path_params={"job_id": "job-101", "candidate_id": "cand-flagged-01"},
-            body={"action": "promote", "notes": "Approved after manual resume inspection"},
-            claims=recruiter_claims,
-        ), None)
-        assert res["statusCode"] == 200
-        resolved = json.loads(res["body"])
-        assert resolved["status"] == "PROMOTED"
-        assert resolved["resolved_by"] == "recruiter-sub-100"
+        with patch("api.handlers.application_handler._get_mongo", return_value=mock_client):
+            # GET /jobs/{job_id}/review-queue
+            res = lambda_handler(_event(
+                "GET", "/jobs/{job_id}/review-queue",
+                path_params={"job_id": "job-101"},
+                claims=recruiter_claims,
+            ), None)
+            assert res["statusCode"] == 200
+            data = json.loads(res["body"])
+            assert data["count"] >= 1
+            assert any(i["resume_id"] == "cand-flagged-01" for i in data["items"])
+
+            # POST /jobs/{job_id}/review-queue/{candidate_id}/action
+            res = lambda_handler(_event(
+                "POST", "/jobs/{job_id}/review-queue/{candidate_id}/action",
+                path_params={"job_id": "job-101", "candidate_id": "cand-flagged-01"},
+                body={"action": "promote", "notes": "Approved after manual resume inspection"},
+                claims=recruiter_claims,
+            ), None)
+            assert res["statusCode"] == 200
+            resolved = json.loads(res["body"])
+            assert resolved["status"] == "PROMOTED"
+            assert resolved["resolved_by"] == "recruiter-sub-100"
 
     def test_candidate_feedback_public_endpoint(self):
         import hashlib
@@ -387,3 +426,45 @@ class TestPhase4ApiEndpoints:
             assert fb["application_id"] == "app-candidate-99"
             assert fb["decision_status"] == "REJECTED"
             assert len(fb["gaps"]) == 1
+
+    def test_candidate_feedback_synthesized_from_hr_report_if_missing(self):
+        import hashlib
+        token = "candidate-token-synth-123"
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+        collections = {
+            "applications": InMemoryCollection([
+                {
+                    "_id": "app-candidate-synth",
+                    "job_id": "job-101",
+                    "decision": "REJECTED",
+                    "candidate_access_token_hash": token_hash,
+                    "hr_report": {
+                        "candidate_id": "cand-synth",
+                        "match_matrix": [
+                            {"criterion_id": "c1", "description": "3+ years Python", "status": "not_evidenced", "type": "must"},
+                            {"criterion_id": "c2", "description": "Apache Spark pipelines", "status": "not_evidenced", "type": "must"}
+                        ],
+                        "gaps": ["[C1] 3+ years Python - not evidenced in resume"]
+                    }
+                    # Note: candidate_feedback is deliberately missing!
+                }
+            ]),
+        }
+        mock_client = _mock_mongo(collections)
+
+        with patch("api.handlers.application_handler._get_mongo", return_value=mock_client):
+            valid_token_event = _event(
+                "GET", "/jobs/{job_id}/applications/{application_id}/feedback",
+                path_params={"job_id": "job-101", "application_id": "app-candidate-synth"},
+                claims=None,
+            )
+            valid_token_event["headers"]["X-Application-Token"] = token
+            res = lambda_handler(valid_token_event, None)
+            assert res["statusCode"] == 200
+            fb = json.loads(res["body"])
+            assert fb["application_id"] == "app-candidate-synth"
+            assert fb["decision_status"] == "REJECTED"
+            assert "feedback" in fb
+            assert len(fb["gaps"]) > 0
+            assert "3+ years Python" in fb["feedback"]

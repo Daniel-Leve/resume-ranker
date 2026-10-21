@@ -1467,22 +1467,33 @@ Requirements:
 
         function renderReportContent(data) {
             const content = document.getElementById('reportContentArea');
+            const dec = data.decision || 'UNDECIDED';
+            const badgeClass = dec === 'SHORTLISTED' ? 'badge-success' : (dec === 'REJECTED' ? 'badge-danger' : 'badge-warning');
             let html = `
                 <div style="display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap;">
-                    <div><strong>Final Score:</strong> <code>${data.final_score || 'N/A'}</code></div>
-                    <div><strong>Decision:</strong> <span class="badge badge-success">${data.decision || 'SHORTLISTED'}</span></div>
+                    <div><strong>Final Score:</strong> <code>${data.final_score !== undefined ? data.final_score : 'N/A'}</code></div>
+                    <div><strong>Decision:</strong> <span class="badge ${badgeClass}">${dec}</span></div>
                     <div><strong>Rubric Version:</strong> <code>${data.rubric_version || 'v1'}</code></div>
                 </div>
             `;
 
-            if (data.criteria_scores && data.criteria_scores.length > 0) {
+            const criteriaList = (data.criteria_scores && data.criteria_scores.length > 0)
+                ? data.criteria_scores
+                : (data.match_matrix || []).map(m => ({
+                    criterion_name: m.description || m.criterion_id,
+                    score: m.status === 'met' ? '5' : (m.status === 'partial' ? '3' : '1'),
+                    evidence_quote: (m.quotes && m.quotes.length > 0) ? m.quotes[0] : (m.status === 'met' ? 'Verified in resume text' : 'Not evidenced in resume')
+                }));
+
+            if (criteriaList.length > 0) {
                 html += `<h5 style="margin-top: 12px; font-weight: 700;">Criteria Breakdown & Evidence Quotes:</h5><div class="table-wrap"><table>
                     <thead><tr><th>Criterion</th><th>Score</th><th>Evidence Cited From Resume</th></tr></thead><tbody>`;
-                data.criteria_scores.forEach(cs => {
+                criteriaList.forEach(cs => {
+                    const fallbackQuote = (cs.score >= 4) ? 'Verified in resume text' : (cs.score >= 3 ? 'Partially evidenced in resume' : 'Not evidenced in resume');
                     html += `<tr>
                         <td><strong>${cs.criterion_name}</strong></td>
                         <td>${cs.score}/5</td>
-                        <td style="font-style: italic; color: #334155;">"${cs.evidence_quote || 'Direct match with JD qualifications.'}"</td>
+                        <td style="font-style: italic; color: #334155;">"${cs.evidence_quote || fallbackQuote}"</td>
                     </tr>`;
                 });
                 html += `</tbody></table></div>`;
@@ -1739,14 +1750,15 @@ Requirements:
                     title.innerText = '⏳ Review in Progress';
                     body.innerText = data.message || 'Your application is currently being evaluated by our hiring team. Constructive feedback will be visible once all assessments are finalized.';
                 } else if (res.status === 200) {
-                    if (data.decision === 'SHORTLISTED') {
+                    const dec = data.decision || data.decision_status;
+                    if (dec === 'SHORTLISTED') {
                         box.className = 'feedback-box shortlisted';
                         title.innerText = '🎉 Congratulations! You have been shortlisted.';
                         body.innerText = data.message || 'Our recruitment team was highly impressed by your application and will be in touch shortly regarding interview rounds.';
-                    } else if (data.decision === 'REJECTED') {
+                    } else if (dec === 'REJECTED') {
                         box.className = 'feedback-box rejected';
                         title.innerText = 'Constructive Feedback & Areas for Growth';
-                        body.innerText = data.feedback || 'Thank you for taking the time to apply. While we are unable to advance your application at this time, we encourage you to review our feedback to support your future applications.';
+                        body.innerText = data.feedback || data.feedback_markdown || 'Thank you for taking the time to apply. While we are unable to advance your application at this time, we encourage you to review our feedback to support your future applications.';
                     } else {
                         box.className = 'feedback-box pending';
                         title.innerText = `Application Status: ${data.decision || 'PENDING'}`;

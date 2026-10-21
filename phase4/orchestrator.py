@@ -34,6 +34,18 @@ from phase4.schemas import (
 logger = logging.getLogger(__name__)
 
 
+def _format_evidence_quote(m: Dict[str, Any]) -> str:
+    quotes = m.get("quotes") or []
+    if quotes and len(quotes) > 0 and quotes[0] and quotes[0].strip():
+        return quotes[0].strip()
+    status = m.get("status")
+    if status == "met":
+        return "Verified in resume text"
+    elif status == "partial":
+        return "Partially evidenced in resume"
+    return "Not evidenced in resume"
+
+
 class Phase4Orchestrator:
     """
     Coordinates end-to-end Phase 4 Explainability pipeline.
@@ -107,6 +119,8 @@ class Phase4Orchestrator:
         feedbacks: List[CandidateFeedback] = []
         review_items: List[Dict[str, Any]] = []
 
+        candidate_results: Dict[str, Any] = {}
+
         total_resumes = len(resumes)
         logger.info("Starting Phase 4 evaluation for job %s (%d resumes)...", jd_id, total_resumes)
 
@@ -114,6 +128,7 @@ class Phase4Orchestrator:
             resume_id = resume_item.get("resume_id") or f"resume_{idx+1}"
             raw_text = resume_item.get("raw_text") or resume_item.get("text") or ""
             cand_name = resume_item.get("candidate_name")
+            app_id = resume_item.get("application_id")
 
             if not raw_text.strip():
                 logger.warning("Empty text for resume %s — skipping.", resume_id)
@@ -242,9 +257,47 @@ class Phase4Orchestrator:
                         "reconciliation": recon.model_dump(),
                         "is_shortlisted": is_shortlisted,
                         "candidate_name": cand_name,
+                        "application_id": app_id,
                     },
                 )
                 review_items.append(q_item.model_dump())
+
+                # Generate HR report for review candidate so recruiter can inspect match matrix & criteria
+                rep = generate_hr_report(
+                    candidate_id=resume_id,
+                    job_id=jd_id,
+                    evaluation=evaluation_obj,
+                    rubric=active_rubric,
+                    reconciliation=recon,
+                    candidate_name=cand_name,
+                    application_id=app_id,
+                    rerank_rank=ranks_by_cand.get(resume_id),
+                    rerank_score=scores_by_cand.get(resume_id),
+                )
+                hr_reports.append(rep)
+                rep_dict = rep.model_dump()
+                rep_dict["final_score"] = round(recon.weighted_score * 100, 1)
+                rep_dict["decision"] = "UNDECIDED"
+                rep_dict["rubric_version"] = active_rubric.version
+                rep_dict["criteria_scores"] = [
+                    {
+                        "criterion_name": m.get("description", m.get("criterion_id")),
+                        "score": 5 if m.get("status") == "met" else (3 if m.get("status") == "partial" else 1),
+                        "evidence_quote": _format_evidence_quote(m),
+                    }
+                    for m in rep_dict.get("match_matrix", [])
+                ]
+
+                candidate_results[resume_id] = {
+                    "candidate_id": resume_id,
+                    "application_id": app_id,
+                    "decision": "UNDECIDED",
+                    "review_status": "HUMAN_REVIEW",
+                    "weighted_score": recon.weighted_score,
+                    "reconciliation": recon.model_dump(),
+                    "review_queue_item": q_item.model_dump(),
+                    "hr_report": rep_dict,
+                }
             else:
                 auto_count += 1
                 if is_shortlisted:
@@ -255,10 +308,31 @@ class Phase4Orchestrator:
                         rubric=active_rubric,
                         reconciliation=recon,
                         candidate_name=cand_name,
+                        application_id=app_id,
                         rerank_rank=ranks_by_cand.get(resume_id),
                         rerank_score=scores_by_cand.get(resume_id),
                     )
                     hr_reports.append(rep)
+                    rep_dict = rep.model_dump()
+                    rep_dict["final_score"] = round(recon.weighted_score * 100, 1)
+                    rep_dict["decision"] = "SHORTLISTED"
+                    rep_dict["rubric_version"] = active_rubric.version
+                    rep_dict["criteria_scores"] = [
+                        {
+                            "criterion_name": m.get("description", m.get("criterion_id")),
+                            "score": 5 if m.get("status") == "met" else (3 if m.get("status") == "partial" else 1),
+                            "evidence_quote": _format_evidence_quote(m),
+                        }
+                        for m in rep_dict.get("match_matrix", [])
+                    ]
+                    candidate_results[resume_id] = {
+                        "candidate_id": resume_id,
+                        "application_id": app_id,
+                        "decision": "SHORTLISTED",
+                        "weighted_score": recon.weighted_score,
+                        "reconciliation": recon.model_dump(),
+                        "hr_report": rep_dict,
+                    }
                 else:
                     fb = generate_candidate_feedback(
                         resume_id=resume_id,
@@ -267,6 +341,14 @@ class Phase4Orchestrator:
                         rubric=active_rubric,
                     )
                     feedbacks.append(fb)
+                    candidate_results[resume_id] = {
+                        "candidate_id": resume_id,
+                        "application_id": app_id,
+                        "decision": "REJECTED",
+                        "weighted_score": recon.weighted_score,
+                        "reconciliation": recon.model_dump(),
+                        "feedback": fb.model_dump(),
+                    }
 
         budget_status = self.daily_budget.get_budget_status()
 
@@ -286,6 +368,9 @@ class Phase4Orchestrator:
             "human_review_queue": human_review_count,
             "hr_reports_generated": len(hr_reports),
             "candidate_feedbacks_generated": len(feedbacks),
+            "reports": [r.model_dump() for r in hr_reports],
+            "feedbacks": [f.model_dump() for f in feedbacks],
+            "candidate_results": candidate_results,
             "budget": budget_status,
             "estimated_days_remaining": days_remaining,
             "verification_metric": self.metrics.summary(),

@@ -126,15 +126,14 @@ def _run_screening(
             except (ValueError, TypeError):
                 pass
 
-    if shortlisted_count is None:
-        job = db["jobs"].find_one({"_id": job_id, "tenant_id": tenant_id})
-        if job:
-            val = job.get("final_shortlisted_candidates_count") or job.get("shortlisted_candidates_count")
-            if val is not None:
-                try:
-                    shortlisted_count = max(1, int(val))
-                except (ValueError, TypeError):
-                    pass
+    job_doc = db["jobs"].find_one({"_id": job_id, "tenant_id": tenant_id})
+    if shortlisted_count is None and job_doc:
+        val = job_doc.get("final_shortlisted_candidates_count") or job_doc.get("shortlisted_candidates_count")
+        if val is not None:
+            try:
+                shortlisted_count = max(1, int(val))
+            except (ValueError, TypeError):
+                pass
 
     if shortlisted_count is None or shortlisted_count <= 0:
         shortlisted_count = 5  # default if not specified by HR
@@ -219,6 +218,7 @@ def _run_screening(
         logger.info("Reconstructing %d candidate documents for reranking...", len(fused))
         valid_candidates = []
         documents = []
+        candidate_texts = {}
 
         for prov in fused:
             doc = build_candidate_document(
@@ -232,6 +232,7 @@ def _run_screening(
                 continue
             valid_candidates.append(prov)
             documents.append(doc.text)
+            candidate_texts[prov.candidate_id] = doc.text
 
         if not documents:
             logger.warning("No valid candidate documents could be reconstructed for Phase 3.")
@@ -298,6 +299,22 @@ def _run_screening(
         elapsed = round(time.time() - start_time, 2)
         logger.info("Phase 3 complete: %d candidates reranked in %.1fs.", len(final_candidates), elapsed)
 
+        # Mark phase3_status COMPLETED on all processed application documents in MongoDB
+        for c in final_candidates:
+            a_id = c.get("application_id")
+            if not a_id:
+                a_tuple = app_lookup.get(c["candidate_id"])
+                if a_tuple:
+                    a_id = a_tuple[0]
+            if a_id:
+                db["applications"].update_one(
+                    {"_id": a_id},
+                    {"$set": {
+                        "phase3_status": "COMPLETED",
+                        "updated_at": _now_iso(),
+                    }}
+                )
+
         # Output exactly the HR-specified final shortlisted candidate count of candidates alone
         top_candidates = final_candidates[:shortlisted_count]
         logger.info(
@@ -305,10 +322,124 @@ def _run_screening(
             len(top_candidates), shortlisted_count,
         )
 
-        # ── Persist results in MongoDB (Phase 4 explainability omitted per user instruction) ─
+        # ── Phase 4: Rubric Evaluation & Explainability ────────────────────
+        phase4_status = "NOT_STARTED"
+        rubric_obj = None
+        if job_doc and job_doc.get("rubric"):
+            try:
+                from phase4.schemas import JobRubric
+                rubric_obj = JobRubric.model_validate(job_doc["rubric"])
+            except Exception as exc:
+                logger.warning("Failed to parse rubric from job doc: %s", exc)
+
+        if not rubric_obj:
+            try:
+                from phase4.rubric_builder import get_rubric
+                rubric_obj = get_rubric(job_id)
+            except Exception:
+                rubric_obj = None
+
+        if rubric_obj and rubric_obj.status == "APPROVED":
+            logger.info(
+                "Phase 4: Found APPROVED rubric (%s) with %d criteria. Starting evaluation...",
+                rubric_obj.version, len(rubric_obj.criteria)
+            )
+            _update_run_status(db, screening_run_id, "RUNNING_PHASE4", {
+                "phase3_status": "COMPLETED",
+                "phase4_status": "RUNNING",
+            })
+            try:
+                from phase4.orchestrator import Phase4Orchestrator
+                from phase4.daily_budget import DailyBudget
+                from phase4.review_queue import ReviewQueueManager
+                from phase4.llm_client import GroqClient
+
+                orchestrator = Phase4Orchestrator(
+                    llm_client=GroqClient(),
+                    daily_budget=DailyBudget(mongo_db=db),
+                    review_queue=ReviewQueueManager(mongo_db=db),
+                )
+
+                # Prepare resumes for Phase 4
+                resumes_p4 = []
+                for c in final_candidates:
+                    cid = c["candidate_id"]
+                    raw_text = candidate_texts.get(cid, "")
+                    if raw_text:
+                        resumes_p4.append({
+                            "resume_id": cid,
+                            "application_id": c.get("application_id"),
+                            "candidate_name": c.get("candidate_name"),
+                            "raw_text": raw_text,
+                        })
+
+                phase3_results = {"candidates": top_candidates}
+                p4_eval = orchestrator.evaluate_batch(
+                    jd_id=job_id,
+                    resumes=resumes_p4,
+                    phase3_results=phase3_results,
+                    rubric=rubric_obj,
+                    tenant_id=tenant_id,
+                )
+
+                candidate_results = p4_eval.get("candidate_results", {})
+                for c in top_candidates:
+                    cid = c["candidate_id"]
+                    if cid in candidate_results:
+                        res = candidate_results[cid]
+                        c["decision"] = res.get("decision", "UNDECIDED")
+                        c["composite_score"] = res.get("weighted_score")
+                        c["final_score"] = res.get("weighted_score")
+                        if "hr_report" in res:
+                            c["hr_report"] = res["hr_report"]
+                        if "feedback" in res:
+                            c["candidate_feedback"] = res["feedback"]
+
+                # Update application collection documents with decisions & reports
+                for cid, res in candidate_results.items():
+                    app_id = res.get("application_id")
+                    if not app_id:
+                        app_tuple = app_lookup.get(cid)
+                        if app_tuple:
+                            app_id = app_tuple[0]
+
+                    if app_id:
+                        decision_val = res.get("decision", "UNDECIDED")
+                        app_update = {
+                            "decision": decision_val,
+                            "phase3_status": "COMPLETED",
+                            "phase4_status": "COMPLETED",
+                            "screened_at": _now_iso(),
+                            "updated_at": _now_iso(),
+                            "screening_run_id": screening_run_id,
+                        }
+                        if decision_val in ("SHORTLISTED", "REJECTED"):
+                            app_update["status"] = decision_val
+                        elif decision_val == "UNDECIDED":
+                            app_update["status"] = "NEEDS_REVIEW"
+                        if "hr_report" in res:
+                            app_update["hr_report"] = res["hr_report"]
+                        if "feedback" in res:
+                            app_update["candidate_feedback"] = res["feedback"]
+
+                        db["applications"].update_one(
+                            {"_id": app_id},
+                            {"$set": app_update}
+                        )
+
+                phase4_status = "COMPLETED"
+                logger.info(
+                    "Phase 4 completed successfully: %d auto decisions, %d review queue.",
+                    p4_eval.get("auto_decisions", 0), p4_eval.get("human_review_queue", 0)
+                )
+            except Exception as p4_exc:
+                logger.error("Phase 4 evaluation failed: %s", p4_exc, exc_info=True)
+                phase4_status = "FAILED"
+
+        # ── Persist results in MongoDB ─────────────────────────────────────
         status_payload = {
             "phase3_status": "COMPLETED",
-            "phase4_status": "NOT_STARTED",
+            "phase4_status": phase4_status,
             "candidates": top_candidates,
             "candidate_count": len(top_candidates),
             "final_shortlisted_candidates_count": shortlisted_count,
